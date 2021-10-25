@@ -58,13 +58,6 @@ type HanaInstance struct {
 }
 
 const sampleConfig = `
-  ## specify servers via a url matching:
-  ##  [username[:password]@][protocol[(address)]]/[?tls=[true|false|skip-verify|custom]]
-  ##  see https://github.com/go-sql-driver/mysql#dsn-data-source-name
-  ##  e.g.
-  ##    servers = ["user:passwd@tcp(127.0.0.1:3306)/?tls=false"]
-  ##    servers = ["user@tcp(127.0.0.1:3306)/?tls=false"]
-  #
   ## If no servers are specified, then localhost is used as the host.
   # server = "localhost:30013"
   # user = "user"
