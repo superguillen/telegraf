@@ -432,6 +432,12 @@
   - New output plugins: Yandex.Cloud monitoring, Logz.io
   - New parser plugin: Prometheus
   - New serializer: Prometheus remote write
+## v1.17.0-rc0 [2020-12-10]
+
+#### Release Notes
+
+- Starlark plugins can now store state between runs using a global state variable
+-
 
 #### Bugfixes
 
@@ -448,6 +454,8 @@
   - [#8472](https://github.com/influxdata/telegraf/pull/8472) `inputs.kube_inventory` Fixing issue with missing metrics when pod has only pending containers
   - [#8542](https://github.com/influxdata/telegraf/pull/8542) `inputs.aerospike` fix edge case in aerospike plugin where an expected hex string was converted to integer if all digits
   - [#8512](https://github.com/influxdata/telegraf/pull/8512) `inputs.kube_inventory` Update string parsing of allocatable cpu cores in kube_inventory
+  - [#8276](https://github.com/influxdata/telegraf/pull/8276) `parsers.grok` Update grok package to support for field names containing '-' and '.'
+  - [#8414](https://github.com/influxdata/telegraf/pull/8414) `inputs.bcache` Fix tests for Windows - part 1
 
 #### Features
 
@@ -494,11 +502,15 @@
 
   - [#8163](https://github.com/influxdata/telegraf/pull/8163) `inputs.riemann` Support Riemann-Protobuff Listener
   - [#8488](https://github.com/influxdata/telegraf/pull/8488) `inputs.intel_powerstat` New Intel PowerStat input plugin
+#### New Input Plugins
+
+  - [#8163](https://github.com/influxdata/telegraf/pull/8163) `inputs.riemann` Support Riemann-Protobuff Listener
 
 #### New Output Plugins
 
   - [#8296](https://github.com/influxdata/telegraf/pull/8296) `outputs.yandex_cloud_monitoring` #8295 Initial Yandex.Cloud monitoring
   - [#8202](https://github.com/influxdata/telegraf/pull/8202) `outputs.logzio` A new Logz.io output plugin
+  - [#8202](https://github.com/influxdata/telegraf/pull/8202) `outputs.all` A new Logz.io output plugin
 
 
 ## v1.16.3 [2020-12-01]
