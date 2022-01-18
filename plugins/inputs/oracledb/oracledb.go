@@ -24,6 +24,7 @@ type OracleDB struct {
 	GatherDatabaseInstanceTablespaces         bool   `toml:"gather_database_instance_tablespaces"`
 	GatherDatabaseInstanceSGA                 bool   `toml:"gather_database_instance_sga"`
 	GatherDatabaseInstanceSQLStats            bool   `toml:"gather_database_instance_sqlstats"`
+	GatherDatabaseInstanceSysStat             bool   `toml:"gather_database_instance_sysstat"`
 
 	Log telegraf.Logger `toml:"-"`
 }
@@ -48,6 +49,7 @@ const sampleConfig = `
   # gather_database_instance_tablespaces = true
   # gather_database_instance_sga = true
   # gather_database_instance_sqlstats = true
+  # gather_database_instance_sysstat = true
 `
 
 const (
@@ -60,7 +62,8 @@ const (
 	defaultGatherDatabaseInstanceUserSessionsDetails = true
 	defaultGatherDatabaseInstanceTablespaces         = true
 	defaultGatherDatabaseInstanceSGA                 = true
-	defaultGatherDatabaseInstanceSQLStat             = false
+	defaultGatherDatabaseInstanceSQLStats            = false
+	defaultGatherDatabaseInstanceSysStat             = true
 )
 
 func (m *OracleDB) Init() error {
@@ -307,6 +310,75 @@ const (
 	FROM V$SQLSTATS
 	WHERE LAST_ACTIVE_TIME > SYSDATE - NUMTODSINTERVAL(1, 'MINUTE')
 	`
+
+	databaseInstanceSysStatQuery = `
+	SELECT STATISTIC#
+		,CASE
+          WHEN CLASS = 1 THEN 'User'
+          WHEN CLASS = 2 THEN 'Redo'
+          WHEN CLASS = 4 THEN 'Enqueue'
+          WHEN CLASS = 8 THEN 'Cache'
+          WHEN CLASS = 16 THEN 'OS'
+          WHEN CLASS = 32 THEN 'Real Application Clusters'
+          WHEN CLASS = 64 THEN 'SQL'
+          WHEN CLASS = 128 THEN 'Debug'
+          ELSE 'OTHER'
+        END CLASS_NAME
+	    ,REPLACE(REPLACE(REPLACE(REPLACE(NAME,' ','_'),'(',''),')',''),'-_','') NAME
+		,CASE
+		   WHEN NAME LIKE 'physical%'   THEN 'physical_io_stats'
+		   WHEN NAME LIKE 'logical%'    THEN 'logical_io_stats'
+		   WHEN NAME LIKE 'db block%'   THEN 'db_block_stats'
+		   WHEN NAME LIKE 'consistent%' THEN 'consistent_block_stats'
+		   WHEN NAME LIKE '%wait time'  THEN 'wait_time_stats'
+		   WHEN NAME LIKE 'lob%'        THEN 'lob_stats'
+		   WHEN NAME LIKE 'securefile%' THEN 'securefile_stats'
+		   WHEN NAME LIKE 'enqueue%'    THEN 'enqueue_stats'
+		   WHEN NAME LIKE 'commit%'     THEN 'commit_stats'
+		   WHEN NAME LIKE 'table%'      THEN 'table_stats'
+		   WHEN NAME LIKE 'index%'      THEN 'index_stats'
+		   WHEN NAME LIKE 'parse%'      THEN 'parse_stats'
+		   WHEN NAME LIKE 'sorts%'      THEN 'sorts_stats'
+		   WHEN NAME LIKE 'bytes%'      THEN 'sql_net_stats'
+		   WHEN NAME LIKE 'logons%'     THEN 'logons_stats'
+		   WHEN NAME LIKE 'opened cursors%' THEN 'opened_cursors_stats'
+		   WHEN NAME LIKE 'workarea%'   THEN 'workarea_stats'
+		   WHEN NAME LIKE '%session%'   THEN 'session_stats'
+		   WHEN NAME LIKE '%consistent read%'   THEN 'consistent_read_stats'
+		   WHEN (NAME = 'execute count'     OR
+		         NAME = 'Effective IO time' OR
+				 NAME = 'DB time'           OR
+				 NAME = 'file io service time' OR
+				 NAME = 'Number of read IOs issued') THEN 'general_stats'
+		   WHEN (NAME = 'free buffer requested'     OR
+		         NAME = 'dirty buffers inspected' OR
+				 NAME = 'pinned buffers inspected'           OR
+				 NAME = 'hot buffers moved to head of LRU' OR
+				 NAME = 'free buffer inspected') THEN 'buffer_stats'
+		   WHEN NAME LIKE 'redo%' AND NOT NAME LIKE '%wait time' THEN 'redo_stats'
+		   WHEN NAME LIKE '%user%' AND NOT NAME LIKE '%wait time' AND NOT NAME LIKE 'Workload%' THEN 'user_stats'
+           ELSE 'other_stats'
+		END STAT_TYPE
+		,VALUE
+	FROM V$SYSSTAT
+	WHERE (NAME LIKE 'physical%'   OR NAME LIKE 'logical%'    OR
+		 NAME LIKE 'db block%'   OR NAME LIKE 'consistent%' OR
+		 NAME LIKE '%wait time'  OR NAME LIKE 'lob%'        OR
+		 NAME LIKE 'securefile%' OR NAME LIKE 'enqueue%'    OR
+		 NAME LIKE 'commit%'     OR NAME LIKE 'table%'      OR
+		 NAME LIKE 'index%'      OR NAME LIKE 'parse%'      OR
+		 NAME LIKE 'sorts%'      OR NAME LIKE 'bytes%'      OR 
+		 NAME LIKE 'logons%'     OR NAME LIKE 'opened cursors%' OR
+		 NAME LIKE 'workarea%'   OR NAME LIKE '%session%'   OR
+		 NAME LIKE '%consistent read%'   OR
+		 (NAME = 'execute count'     OR NAME = 'Effective IO time' OR
+		  NAME = 'DB time'           OR NAME = 'file io service time' OR
+		  NAME = 'Number of read IOs issued' OR NAME = 'free buffer requested'     OR
+		  NAME = 'dirty buffers inspected'   OR NAME = 'pinned buffers inspected'  OR
+		  NAME = 'hot buffers moved to head of LRU' OR NAME = 'free buffer inspected') OR
+		 NAME LIKE 'redo%'       OR NAME LIKE '%user%')
+		 AND NOT NAME LIKE 'Workload%'
+	`
 )
 
 func (m *OracleDB) getConnection(serv string) (*go_ora.Connection, error) {
@@ -391,6 +463,13 @@ func (m *OracleDB) gatherServer(oi *OracleInstance, db *go_ora.Connection, acc t
 
 	if m.GatherDatabaseInstanceSQLStats {
 		err = m.gatherDatabaseInstanceSQLStats(oi, db, acc)
+		if err != nil {
+			return err
+		}
+	}
+
+	if m.GatherDatabaseInstanceSysStat {
+		err = m.gatherDatabaseInstanceSysStat(oi, db, acc)
 		if err != nil {
 			return err
 		}
@@ -1073,6 +1152,57 @@ func (m *OracleDB) gatherDatabaseInstanceSQLStats(oi *OracleInstance, db *go_ora
 	return nil
 }
 
+func (m *OracleDB) gatherDatabaseInstanceSysStat(oi *OracleInstance, db *go_ora.Connection, acc telegraf.Accumulator) error {
+
+	//Create statement
+	stmt := go_ora.NewStmt(databaseInstanceSysStatQuery, db)
+	defer stmt.Close()
+
+	// run query
+	rows, err := stmt.Query_(nil)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	tags := make(map[string]string)
+	fields := map[string]interface{}{
+		"metric_value": 0.0,
+	}
+
+	var (
+		statistic_number int
+		class_name       string
+		metric_name      string
+		stat_type        string
+		metric_value     float64
+	)
+
+	// iterate over rows
+	for rows.Next_() {
+		if err := rows.Scan(&statistic_number,
+			&class_name,
+			&metric_name,
+			&stat_type,
+			&metric_value); err == nil {
+
+			tags["db"] = oi.instance_name
+			tags["instance_number"] = strconv.Itoa(oi.instance_number)
+			tags["host"] = oi.host
+			tags["statistic_number"] = strconv.Itoa(statistic_number)
+			tags["class_name"] = class_name
+			tags["metric_name"] = metric_name
+			tags["stat_type"] = stat_type
+			fields["metric_value"] = metric_value
+
+			acc.AddFields("oracle_sysstat", fields, tags)
+
+		}
+	}
+
+	return nil
+}
+
 func init() {
 	inputs.Add("oracledb", func() telegraf.Input {
 		return &OracleDB{
@@ -1085,7 +1215,8 @@ func init() {
 			GatherDatabaseInstanceUserSessionsDetails: defaultGatherDatabaseInstanceUserSessionsDetails,
 			GatherDatabaseInstanceTablespaces:         defaultGatherDatabaseInstanceTablespaces,
 			GatherDatabaseInstanceSGA:                 defaultGatherDatabaseInstanceSGA,
-			GatherDatabaseInstanceSQLStats:            defaultGatherDatabaseInstanceSQLStat,
+			GatherDatabaseInstanceSQLStats:            defaultGatherDatabaseInstanceSQLStats,
+			GatherDatabaseInstanceSysStat:             defaultGatherDatabaseInstanceSysStat,
 		}
 	})
 }
