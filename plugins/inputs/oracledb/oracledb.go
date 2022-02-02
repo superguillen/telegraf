@@ -48,8 +48,10 @@ const sampleConfig = `
   # gather_database_instance_user_sessions_details = true
   # gather_database_instance_tablespaces = true
   # gather_database_instance_sga = true
-  # gather_database_instance_sqlstats = true
   # gather_database_instance_sysstat = true
+  ########################################
+  # Note: gather_database_instance_sqlstats = true only for databases with cursor_sharing=force (higth cardinality whit other that force)
+  # gather_database_instance_sqlstats = true
 `
 
 const (
