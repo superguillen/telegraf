@@ -25,6 +25,7 @@ type OracleDB struct {
 	GatherDatabaseInstanceSGA                 bool   `toml:"gather_database_instance_sga"`
 	GatherDatabaseInstanceSQLStats            bool   `toml:"gather_database_instance_sqlstats"`
 	GatherDatabaseInstanceSysStat             bool   `toml:"gather_database_instance_sysstat"`
+	GatherDatabaseInstanceSystemEvents        bool   `toml:"gather_database_instance_system_events"`
 
 	Log telegraf.Logger `toml:"-"`
 }
@@ -49,6 +50,7 @@ const sampleConfig = `
   # gather_database_instance_tablespaces = true
   # gather_database_instance_sga = true
   # gather_database_instance_sysstat = true
+  # gather_database_instance_system_events = true
   ########################################
   # Note: gather_database_instance_sqlstats = true only for databases with cursor_sharing=force (higth cardinality whit other that force)
   # gather_database_instance_sqlstats = true
@@ -66,6 +68,7 @@ const (
 	defaultGatherDatabaseInstanceSGA                 = true
 	defaultGatherDatabaseInstanceSQLStats            = false
 	defaultGatherDatabaseInstanceSysStat             = true
+	defaultGatherDatabaseInstanceSystemEvents        = true
 )
 
 func (m *OracleDB) Init() error {
@@ -381,6 +384,34 @@ const (
 		 NAME LIKE 'redo%'       OR NAME LIKE '%user%')
 		 AND NOT NAME LIKE 'Workload%'
 	`
+
+	databaseInstanceSystemEventsQuery = `
+	SELECT   
+		WAIT_CLASS WAIT_CLASS,
+		REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(NAME,' ','_'),'(',''),')',''),'-_',''),':','') EVENT_NAME,
+		ROUND (TIME_WAITED_MICRO, 2) TIME_WAITED_MICRO
+	FROM
+		(SELECT
+			N.WAIT_CLASS,
+			E.EVENT NAME,
+			E.TIME_WAITED_MICRO TIME_WAITED_MICRO
+		FROM
+			V$SYSTEM_EVENT E,
+			V$EVENT_NAME N
+		WHERE
+			N.NAME = E.EVENT AND N.WAIT_CLASS <> 'Idle'
+		AND
+			TIME_WAITED > 0
+		UNION
+		SELECT
+			'CPU',
+			STAT_NAME,
+			VALUE TIME_WAITED_MICRO
+		FROM V$SYS_TIME_MODEL
+		WHERE
+		STAT_NAME IN ('background cpu time', 'DB CPU'))
+	ORDER BY TIME_WAITED_MICRO DESC
+	`
 )
 
 func (m *OracleDB) getConnection(serv string) (*go_ora.Connection, error) {
@@ -472,6 +503,13 @@ func (m *OracleDB) gatherServer(oi *OracleInstance, db *go_ora.Connection, acc t
 
 	if m.GatherDatabaseInstanceSysStat {
 		err = m.gatherDatabaseInstanceSysStat(oi, db, acc)
+		if err != nil {
+			return err
+		}
+	}
+
+	if m.GatherDatabaseInstanceSystemEvents {
+		err = m.gatherDatabaseInstanceSystemEvents(oi, db, acc)
 		if err != nil {
 			return err
 		}
@@ -1205,6 +1243,50 @@ func (m *OracleDB) gatherDatabaseInstanceSysStat(oi *OracleInstance, db *go_ora.
 	return nil
 }
 
+func (m *OracleDB) gatherDatabaseInstanceSystemEvents(oi *OracleInstance, db *go_ora.Connection, acc telegraf.Accumulator) error {
+
+	//Create statement
+	stmt := go_ora.NewStmt(databaseInstanceSystemEventsQuery, db)
+	defer stmt.Close()
+
+	// run query
+	rows, err := stmt.Query_(nil)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	tags := make(map[string]string)
+	fields := map[string]interface{}{
+		"time_waited_micro": 0.0,
+	}
+
+	var (
+		class_name        string
+		event_name        string
+		time_waited_micro float64
+	)
+
+	// iterate over rows
+	for rows.Next_() {
+		if err := rows.Scan(&class_name,
+			&event_name,
+			&time_waited_micro); err == nil {
+
+			tags["db"] = oi.instance_name
+			tags["instance_number"] = strconv.Itoa(oi.instance_number)
+			tags["host"] = oi.host
+			tags["class_name"] = class_name
+			tags["event_name"] = event_name
+			fields["time_waited_micro"] = time_waited_micro
+
+			acc.AddFields("oracle_system_events", fields, tags)
+		}
+	}
+
+	return nil
+}
+
 func init() {
 	inputs.Add("oracledb", func() telegraf.Input {
 		return &OracleDB{
@@ -1219,6 +1301,7 @@ func init() {
 			GatherDatabaseInstanceSGA:                 defaultGatherDatabaseInstanceSGA,
 			GatherDatabaseInstanceSQLStats:            defaultGatherDatabaseInstanceSQLStats,
 			GatherDatabaseInstanceSysStat:             defaultGatherDatabaseInstanceSysStat,
+			GatherDatabaseInstanceSystemEvents:        defaultGatherDatabaseInstanceSystemEvents,
 		}
 	})
 }
