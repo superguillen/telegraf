@@ -25,15 +25,18 @@ type OracleDB struct {
 	GatherDatabaseInstanceSGA                 bool   `toml:"gather_database_instance_sga"`
 	GatherDatabaseInstanceSQLStats            bool   `toml:"gather_database_instance_sqlstats"`
 	GatherDatabaseInstanceSysStat             bool   `toml:"gather_database_instance_sysstat"`
-	GatherDatabaseInstanceSystemEvents        bool   `toml:"gather_database_instance_system_events"`
+	GatherDatabaseInstanceSystemEvent         bool   `toml:"gather_database_instance_system_event"`
+	GatherDatabaseInstanceSysTimeModel        bool   `toml:"gather_database_instance_sys_time_model"`
 
 	Log telegraf.Logger `toml:"-"`
 }
 
 type OracleInstance struct {
-	host            string
-	instance_name   string
-	instance_number int
+	host                    string
+	instance_name           string
+	container_name          string
+	pluglable_database_name string
+	instance_number         int
 }
 
 const sampleConfig = `
@@ -50,7 +53,8 @@ const sampleConfig = `
   # gather_database_instance_tablespaces = true
   # gather_database_instance_sga = true
   # gather_database_instance_sysstat = true
-  # gather_database_instance_system_events = true
+  # gather_database_instance_system_event = true
+  # gather_database_instance_sys_time_model = true
   ########################################
   # Note: gather_database_instance_sqlstats = true only for databases with cursor_sharing=force (higth cardinality whit other that force)
   # gather_database_instance_sqlstats = true
@@ -68,7 +72,8 @@ const (
 	defaultGatherDatabaseInstanceSGA                 = true
 	defaultGatherDatabaseInstanceSQLStats            = false
 	defaultGatherDatabaseInstanceSysStat             = true
-	defaultGatherDatabaseInstanceSystemEvents        = true
+	defaultGatherDatabaseInstanceSystemEvent         = true
+	defaultGatherDatabaseInstanceSysTimeModel        = true
 )
 
 func (m *OracleDB) Init() error {
@@ -116,6 +121,7 @@ const (
 	SELECT INSTANCE_NAME
 	      ,INSTANCE_NUMBER
 	      ,HOST_NAME
+		  ,SYS_CONTEXT('USERENV', 'CON_NAME') CONTAINER_NAME
 		   FROM SYS.V_$INSTANCE
 	`
 	databaseInstanceDetailsQuery = `
@@ -385,7 +391,7 @@ const (
 		 AND NOT NAME LIKE 'Workload%'
 	`
 
-	databaseInstanceSystemEventsQuery = `
+	databaseInstanceSystemEventQuery = `
 	SELECT   
 		WAIT_CLASS WAIT_CLASS,
 		REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(NAME,' ','_'),'(',''),')',''),'-_',''),':','') EVENT_NAME,
@@ -411,6 +417,14 @@ const (
 		WHERE
 		STAT_NAME IN ('background cpu time', 'DB CPU'))
 	ORDER BY TIME_WAITED_MICRO DESC
+	`
+
+	databaseInstanceSysTimeModelQuery = `
+    SELECT
+	  REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(STAT_NAME,' ','_'),'(',''),')',''),'-_',''),':','') STAT_NAME,
+      VALUE TIME_MICRO
+    FROM V$SYS_TIME_MODEL
+    WHERE VALUE > 0 
 	`
 )
 
@@ -508,8 +522,15 @@ func (m *OracleDB) gatherServer(oi *OracleInstance, db *go_ora.Connection, acc t
 		}
 	}
 
-	if m.GatherDatabaseInstanceSystemEvents {
-		err = m.gatherDatabaseInstanceSystemEvents(oi, db, acc)
+	if m.GatherDatabaseInstanceSystemEvent {
+		err = m.gatherDatabaseInstanceSystemEvent(oi, db, acc)
+		if err != nil {
+			return err
+		}
+	}
+
+	if m.GatherDatabaseInstanceSysTimeModel {
+		err = m.gatherDatabaseInstanceSysTimeModel(oi, db, acc)
 		if err != nil {
 			return err
 		}
@@ -535,17 +556,24 @@ func (m *OracleDB) gatherDatabaseInstanceInfo(oi *OracleInstance, db *go_ora.Con
 		instance_name   string
 		instance_number int
 		hostname        string
+		container_name  string
 	)
 
 	// iterate over rows
 	for rows.Next_() {
 		if err := rows.Scan(&instance_name,
 			&instance_number,
-			&hostname); err == nil {
+			&hostname,
+			&container_name); err == nil {
 
 			oi.host = hostname
 			oi.instance_name = instance_name
 			oi.instance_number = instance_number
+
+			if len(container_name) > 0 {
+				oi.container_name = container_name
+				oi.pluglable_database_name = instance_name
+			}
 
 		}
 	}
@@ -597,9 +625,12 @@ func (m *OracleDB) gatherDatabaseInstanceDetails(oi *OracleInstance, db *go_ora.
 			&database_type,
 			&startup_secs); err == nil {
 
-			tags["db"] = instance_name
-			tags["instance_number"] = strconv.Itoa(instance_number)
-			tags["host"] = hostname
+			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
+			tags["instance_number"] = strconv.Itoa(oi.instance_number)
+			tags["host"] = oi.host
 			tags["instance_status"] = instance_status
 			tags["database_status"] = database_status
 			tags["instance_role"] = instance_role
@@ -653,6 +684,9 @@ func (m *OracleDB) gatherDatabaseInstanceSysmetric(oi *OracleInstance, db *go_or
 			&metric_unit); err == nil {
 
 			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
 			tags["instance_number"] = strconv.Itoa(oi.instance_number)
 			tags["host"] = oi.host
 			tags["metric_name"] = metric_name
@@ -704,6 +738,9 @@ func (m *OracleDB) gatherDatabaseInstanceWaitStats(oi *OracleInstance, db *go_or
 			&latency_ms); err == nil {
 
 			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
 			tags["instance_number"] = strconv.Itoa(oi.instance_number)
 			tags["host"] = oi.host
 			tags["wait_class"] = wait_class
@@ -748,6 +785,9 @@ func (m *OracleDB) gatherDatabaseInstanceWaitClassStats(oi *OracleInstance, db *
 			&wait_value); err == nil {
 
 			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
 			tags["instance_number"] = strconv.Itoa(oi.instance_number)
 			tags["host"] = oi.host
 			tags["wait_class"] = wait_class
@@ -820,6 +860,9 @@ func (m *OracleDB) gatherDatabaseInstanceUserSessionsDetails(oi *OracleInstance,
 			&count); err == nil {
 
 			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
 			tags["instance_number"] = strconv.Itoa(oi.instance_number)
 			tags["host"] = oi.host
 			tags["username"] = username
@@ -885,6 +928,9 @@ func (m *OracleDB) gatherDatabaseInstanceUserSessions(oi *OracleInstance, db *go
 			&count); err == nil {
 
 			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
 			tags["instance_number"] = strconv.Itoa(oi.instance_number)
 			tags["host"] = oi.host
 			tags["username"] = username
@@ -946,6 +992,9 @@ func (m *OracleDB) gatherDatabaseInstanceTablespaces(oi *OracleInstance, db *go_
 			&free_space_autoextend_mb); err == nil {
 
 			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
 			tags["instance_number"] = strconv.Itoa(oi.instance_number)
 			tags["host"] = oi.host
 			tags["tbs_name"] = tbs_name
@@ -1013,6 +1062,9 @@ func (m *OracleDB) gatherDatabaseInstanceSGA(oi *OracleInstance, db *go_ora.Conn
 			&shared_pool_used_mb); err == nil {
 
 			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
 			tags["instance_number"] = strconv.Itoa(oi.instance_number)
 			tags["host"] = oi.host
 			fields["sga_total_mb"] = sga_total_mb
@@ -1150,6 +1202,9 @@ func (m *OracleDB) gatherDatabaseInstanceSQLStats(oi *OracleInstance, db *go_ora
 			&physical_write_bytes); err == nil {
 
 			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
 			tags["instance_number"] = strconv.Itoa(oi.instance_number)
 			tags["host"] = oi.host
 			tags["sql_id"] = sql_id
@@ -1227,6 +1282,9 @@ func (m *OracleDB) gatherDatabaseInstanceSysStat(oi *OracleInstance, db *go_ora.
 			&metric_value); err == nil {
 
 			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
 			tags["instance_number"] = strconv.Itoa(oi.instance_number)
 			tags["host"] = oi.host
 			tags["statistic_number"] = strconv.Itoa(statistic_number)
@@ -1243,10 +1301,10 @@ func (m *OracleDB) gatherDatabaseInstanceSysStat(oi *OracleInstance, db *go_ora.
 	return nil
 }
 
-func (m *OracleDB) gatherDatabaseInstanceSystemEvents(oi *OracleInstance, db *go_ora.Connection, acc telegraf.Accumulator) error {
+func (m *OracleDB) gatherDatabaseInstanceSystemEvent(oi *OracleInstance, db *go_ora.Connection, acc telegraf.Accumulator) error {
 
 	//Create statement
-	stmt := go_ora.NewStmt(databaseInstanceSystemEventsQuery, db)
+	stmt := go_ora.NewStmt(databaseInstanceSystemEventQuery, db)
 	defer stmt.Close()
 
 	// run query
@@ -1274,13 +1332,60 @@ func (m *OracleDB) gatherDatabaseInstanceSystemEvents(oi *OracleInstance, db *go
 			&time_waited_micro); err == nil {
 
 			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
 			tags["instance_number"] = strconv.Itoa(oi.instance_number)
 			tags["host"] = oi.host
 			tags["class_name"] = class_name
 			tags["event_name"] = event_name
 			fields["time_waited_micro"] = time_waited_micro
 
-			acc.AddFields("oracle_system_events", fields, tags)
+			acc.AddFields("oracle_system_event", fields, tags)
+		}
+	}
+
+	return nil
+}
+
+func (m *OracleDB) gatherDatabaseInstanceSysTimeModel(oi *OracleInstance, db *go_ora.Connection, acc telegraf.Accumulator) error {
+
+	//Create statement
+	stmt := go_ora.NewStmt(databaseInstanceSysTimeModelQuery, db)
+	defer stmt.Close()
+
+	// run query
+	rows, err := stmt.Query_(nil)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	tags := make(map[string]string)
+	fields := map[string]interface{}{
+		"time_micro": 0.0,
+	}
+
+	var (
+		stat_name  string
+		time_micro float64
+	)
+
+	// iterate over rows
+	for rows.Next_() {
+		if err := rows.Scan(&stat_name,
+			&time_micro); err == nil {
+
+			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
+			tags["instance_number"] = strconv.Itoa(oi.instance_number)
+			tags["host"] = oi.host
+			tags["stat_name"] = stat_name
+			fields["time_micro"] = time_micro
+
+			acc.AddFields("oracle_sys_time_model", fields, tags)
 		}
 	}
 
@@ -1301,7 +1406,8 @@ func init() {
 			GatherDatabaseInstanceSGA:                 defaultGatherDatabaseInstanceSGA,
 			GatherDatabaseInstanceSQLStats:            defaultGatherDatabaseInstanceSQLStats,
 			GatherDatabaseInstanceSysStat:             defaultGatherDatabaseInstanceSysStat,
-			GatherDatabaseInstanceSystemEvents:        defaultGatherDatabaseInstanceSystemEvents,
+			GatherDatabaseInstanceSystemEvent:         defaultGatherDatabaseInstanceSystemEvent,
+			GatherDatabaseInstanceSysTimeModel:        defaultGatherDatabaseInstanceSysTimeModel,
 		}
 	})
 }
