@@ -1,3 +1,4 @@
+// Package rand is loosely based off of https://github.com/danielnelson/telegraf-plugins
 package hanadb
 
 import (
@@ -42,6 +43,7 @@ type HanaDB struct {
 	GatherSDIRemoteSubscriptionsStadistics bool     `toml:"gather_sdi_remote_subscriptions_stadistics"`
 	GatherLicenseUsage                     bool     `toml:"gather_license_usage"`
 	GatherServiceBufferCacheStats          bool     `toml:"gather_service_buffer_cache_stats"`
+	GatherServiceThreads                   bool     `toml:"gather_service_threads"`
 
 	Log telegraf.Logger `toml:"-"`
 	//InstanceInfo           map[string]interface{}
@@ -100,6 +102,7 @@ const sampleConfig = `
   # gather_sdi_remote_subscriptions_stadistics = true
   # gather_license_usage = true
   # gather_service_buffer_cache_stats = true
+  # gather_service_threads = true
 `
 
 const (
@@ -127,6 +130,7 @@ const (
 	defaultGatherSDIRemoteSubscriptionsStadistics = false
 	defaultGatherLicenseUsage                     = false
 	defaultGatherServiceBufferCacheStats          = false
+	defaultGatherServiceThreads                   = false
 )
 
 func (m *HanaDB) Init() error {
@@ -715,6 +719,44 @@ const (
         FROM M_SQL_PLAN_CACHE_OVERVIEW A, M_SERVICES B
         WHERE A.PORT = B.PORT;
 	`
+	serviceThreadsQuery = `
+        SELECT
+                HOST
+                ,PORT
+                ,SERVICE_NAME
+                ,MAP(WORKLOAD_CLASS_NAME,'','Unknown',WORKLOAD_CLASS_NAME) WORKLOAD_CLASS_NAME
+                ,CASE
+                WHEN THREAD_TYPE LIKE 'JobWrk%' THEN 'JobWorker'
+                ELSE THREAD_TYPE
+                END THREAD_TYPE
+                ,CASE
+                WHEN THREAD_METHOD LIKE 'GCJob%' THEN 'GCJob'
+                WHEN THREAD_METHOD = '' THEN 'Unknown'
+                ELSE THREAD_METHOD
+                END THREAD_METHOD
+                ,THREAD_STATE
+                ,MAP(USER_NAME,'','Unknown',USER_NAME) USER_NAME
+                ,MAP(APPLICATION_NAME,'','Unknown',APPLICATION_NAME) APPLICATION_NAME
+                ,MAP(APPLICATION_USER_NAME,'','Unknown',APPLICATION_USER_NAME) APPLICATION_USER_NAME
+                ,LOCK_WAIT_COMPONENT
+                ,CASE
+                WHEN LOCK_WAIT_NAME LIKE '%[%:%]@%:%' THEN
+                        SUBSTR(LOCK_WAIT_NAME, LOCATE(LOCK_WAIT_NAME, '[') + 1, LOCATE(LOCK_WAIT_NAME, ':') - LOCATE(LOCK_WAIT_NAME, '[')) ||
+                        SUBSTR(LOCK_WAIT_NAME, LOCATE(LOCK_WAIT_NAME, ':' || CHAR(32)) + 1)
+                WHEN LOCK_WAIT_NAME = '' THEN
+                        'Unknown'
+                ELSE
+                        LOCK_WAIT_NAME
+                END LOCK_WAIT_NAME
+                ,IS_ACTIVE
+                ,MAP(CLIENT_IP,'','Unknown',CLIENT_IP) CLIENT_IP
+                ,ROUND(AVG(DURATION),2) DURATION_MS_AVG
+				,ROUND(AVG(CPU_TIME_SELF),2) CPU_TIME_MICRO_AVG
+                ,COUNT(*) COUNT
+        FROM M_SERVICE_THREADS
+        GROUP BY HOST,PORT,SERVICE_NAME,WORKLOAD_CLASS_NAME,THREAD_TYPE,THREAD_METHOD,THREAD_STATE,USER_NAME,APPLICATION_NAME,APPLICATION_USER_NAME,LOCK_WAIT_COMPONENT,LOCK_WAIT_NAME,IS_ACTIVE,CLIENT_IP
+        ORDER BY COUNT;
+	`
 )
 
 func (m *HanaDB) getConnection(serv string) (*sql.DB, error) {
@@ -868,6 +910,13 @@ func (m *HanaDB) gatherServer(hi *HanaInstance, db *sql.DB, acc telegraf.Accumul
 
 	if m.GatherServiceBufferCacheStats {
 		err = m.gatherServiceBufferCacheStats(hi, db, acc)
+		if err != nil {
+			return err
+		}
+	}
+
+	if m.GatherServiceThreads {
+		err = m.gatherServiceThreads(hi, db, acc)
 		if err != nil {
 			return err
 		}
@@ -2520,6 +2569,98 @@ func (m *HanaDB) gatherServiceBufferCacheStats(hi *HanaInstance, db *sql.DB, acc
 	return nil
 }
 
+func (m *HanaDB) gatherServiceThreads(hi *HanaInstance, db *sql.DB, acc telegraf.Accumulator) error {
+	// run query
+	rows, err := db.Query(serviceThreadsQuery)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	tags := make(map[string]string)
+	fields := map[string]interface{}{
+		"duration_ms_avg":    0.0,
+		"cpu_time_micro_avg": 0.0,
+		"count":              0,
+	}
+
+	var (
+		host                  string
+		port                  string
+		service_name          string
+		workload_class_name   string
+		thread_type           string
+		thread_method         string
+		thread_state          string
+		user_name             string
+		application_name      string
+		application_user_name string
+		lock_wait_component   string
+		lock_wait_name        string
+		is_active             string
+		client_ip             string
+		cpu_time_micro_avg    driver.Decimal
+		duration_ms_avg       driver.Decimal
+		count                 int64
+	)
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return err
+	}
+	numColumns := len(columns)
+
+	tags["host"] = hi.host
+	tags["database_name"] = hi.database_name
+	tags["instance_id"] = hi.instance_id
+	tags["instance_number"] = hi.instance_number
+	// iterate over rows and count the size and count of files
+	for rows.Next() {
+		if numColumns == 17 {
+			if err := rows.Scan(&host,
+				&port,
+				&service_name,
+				&workload_class_name,
+				&thread_type,
+				&thread_method,
+				&thread_state,
+				&user_name,
+				&application_name,
+				&application_user_name,
+				&lock_wait_component,
+				&lock_wait_name,
+				&is_active,
+				&client_ip,
+				&duration_ms_avg,
+				&cpu_time_micro_avg,
+				&count); err == nil {
+				tags["host"] = host
+				tags["port"] = port
+				tags["service_name"] = service_name
+				tags["workload_class_name"] = workload_class_name
+				tags["thread_type"] = thread_type
+				tags["thread_method"] = thread_method
+				tags["thread_state"] = thread_state
+				tags["user_name"] = user_name
+				tags["application_name"] = application_name
+				tags["application_user_name"] = application_user_name
+				tags["lock_wait_component"] = lock_wait_component
+				tags["lock_wait_name"] = thread_method
+				tags["is_active"] = is_active
+				tags["client_ip"] = thread_method
+				fields["duration_ms_avg"], _ = (*big.Rat)(&duration_ms_avg).Float64()
+				fields["cpu_time_micro_avg"], _ = (*big.Rat)(&cpu_time_micro_avg).Float64()
+				fields["count"] = count
+
+				acc.AddFields("hanadb_service_threads", fields, tags)
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func init() {
 	inputs.Add("hanadb", func() telegraf.Input {
 		return &HanaDB{
@@ -2547,6 +2688,7 @@ func init() {
 			GatherSDIRemoteSubscriptionsStadistics: defaultGatherSDIRemoteSubscriptionsStadistics,
 			GatherLicenseUsage:                     defaultGatherLicenseUsage,
 			GatherServiceBufferCacheStats:          defaultGatherServiceBufferCacheStats,
+			GatherServiceThreads:                   defaultGatherServiceThreads,
 		}
 	})
 }
