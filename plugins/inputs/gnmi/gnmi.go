@@ -72,12 +72,22 @@ type GNMI struct {
 	internaltls.ClientConfig
 
 	// Internal state
+<<<<<<< HEAD
 	internalAliases    map[string]string
 	acc                telegraf.Accumulator
 	cancel             context.CancelFunc
 	wg                 sync.WaitGroup
 	legacyTags         bool
 	emptyNameWarnShown bool
+=======
+	internalAliases map[string]string
+	acc             telegraf.Accumulator
+	cancel          context.CancelFunc
+	wg              sync.WaitGroup
+	// Lookup/device+name/key/value
+	lookup      map[string]map[string]map[string]interface{}
+	lookupMutex sync.Mutex
+>>>>>>> v1.22.4-customplugins
 
 	Log telegraf.Logger
 }
@@ -137,6 +147,7 @@ func (c *GNMI) Start(acc telegraf.Accumulator) error {
 	var request *gnmiLib.SubscribeRequest
 	c.acc = acc
 	ctx, c.cancel = context.WithCancel(context.Background())
+<<<<<<< HEAD
 
 	for i := len(c.Subscriptions) - 1; i >= 0; i-- {
 		subscription := c.Subscriptions[i]
@@ -164,6 +175,11 @@ func (c *GNMI) Start(acc telegraf.Accumulator) error {
 			return fmt.Errorf("tag_subscription must have at least one element")
 		}
 	}
+=======
+	c.lookupMutex.Lock()
+	c.lookup = make(map[string]map[string]map[string]interface{})
+	c.lookupMutex.Unlock()
+>>>>>>> v1.22.4-customplugins
 
 	// Validate configuration
 	if request, err = c.newSubscribeRequest(); err != nil {
@@ -195,6 +211,35 @@ func (c *GNMI) Start(acc telegraf.Accumulator) error {
 		if err := s.buildAlias(c.internalAliases); err != nil {
 			return err
 		}
+<<<<<<< HEAD
+=======
+
+		longPath, _, err := c.handlePath(gnmiLongPath, nil, "")
+		if err != nil {
+			return fmt.Errorf("handling long-path failed: %v", err)
+		}
+		shortPath, _, err := c.handlePath(gnmiShortPath, nil, "")
+		if err != nil {
+			return fmt.Errorf("handling short-path failed: %v", err)
+		}
+		name := subscription.Name
+
+		// If the user didn't provide a measurement name, use last path element
+		if len(name) == 0 {
+			name = path.Base(shortPath)
+		}
+		if len(name) > 0 {
+			c.internalAliases[longPath] = name
+			c.internalAliases[shortPath] = name
+		}
+
+		if subscription.TagOnly {
+			// Create the top-level lookup for this tag
+			c.lookupMutex.Lock()
+			c.lookup[name] = make(map[string]map[string]interface{})
+			c.lookupMutex.Unlock()
+		}
+>>>>>>> v1.22.4-customplugins
 	}
 
 	for alias, encodingPath := range c.Aliases {
@@ -407,11 +452,38 @@ func (c *GNMI) handleSubscribeResponseUpdate(worker *Worker, response *gnmiLib.S
 			}
 		}
 
+<<<<<<< HEAD
 		// Check for empty names
 		if name == "" && !c.emptyNameWarnShown {
 			c.Log.Warnf(emptyNameWarning, response.Update)
 			c.emptyNameWarnShown = true
+=======
+		// Update tag lookups and discard rest of update
+		subscriptionKey := tags["source"] + "/" + tags["name"]
+		c.lookupMutex.Lock()
+		if _, ok := c.lookup[name]; ok {
+			// We are subscribed to this, so add the fields to the lookup-table
+			if _, ok := c.lookup[name][subscriptionKey]; !ok {
+				c.lookup[name][subscriptionKey] = make(map[string]interface{})
+			}
+			for k, v := range fields {
+				c.lookup[name][subscriptionKey][path.Base(k)] = v
+			}
+			c.lookupMutex.Unlock()
+			// Do not process the data further as we only subscribed here for the lookup table
+			continue
 		}
+
+		// Apply lookups if present
+		for subscriptionName, values := range c.lookup {
+			if annotations, ok := values[subscriptionKey]; ok {
+				for k, v := range annotations {
+					tags[subscriptionName+"/"+k] = fmt.Sprint(v)
+				}
+			}
+>>>>>>> v1.22.4-customplugins
+		}
+		c.lookupMutex.Unlock()
 
 		// Group metrics
 		for k, v := range fields {

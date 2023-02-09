@@ -242,6 +242,7 @@ func (adx *AzureDataExplorer) Init() error {
 		return errors.New("Metrics grouping type is not valid")
 	}
 
+<<<<<<< HEAD
 	if adx.IngestionType == "" {
 		adx.IngestionType = queuedIngestion
 	} else if !(choice.Contains(adx.IngestionType, []string{managedIngestion, queuedIngestion})) {
@@ -252,6 +253,9 @@ func (adx *AzureDataExplorer) Init() error {
 		TimestampUnits:  time.Nanosecond,
 		TimestampFormat: time.RFC3339Nano,
 	})
+=======
+	serializer, err := json.NewSerializer(time.Nanosecond, time.RFC3339Nano)
+>>>>>>> v1.22.4-customplugins
 	if err != nil {
 		return err
 	}

@@ -8,7 +8,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+<<<<<<< HEAD
 	"go.opentelemetry.io/otel/sdk/metric"
+=======
+	"go.opentelemetry.io/otel/metric/global"
+	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
+	processor "go.opentelemetry.io/otel/sdk/metric/processor/basic"
+	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
+>>>>>>> v1.22.4-customplugins
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 
@@ -48,12 +55,20 @@ func TestOpenTelemetry(t *testing.T) {
 
 	// set a metric value
 
+<<<<<<< HEAD
 	meter := mp.Meter("library-name")
 	counter, err := meter.SyncInt64().Counter("measurement-counter")
 	require.NoError(t, err)
 	counter.Add(ctx, 7)
 
 	// write metrics through the telegraf OpenTelemetry input plugin
+=======
+	// write metrics
+	meter := global.MeterProvider().Meter("library-name")
+	counter, err := meter.SyncInt64().Counter("measurement-counter")
+	require.NoError(t, err)
+	counter.Add(context.Background(), 7)
+>>>>>>> v1.22.4-customplugins
 
 	rm, err := reader.Collect(ctx)
 	require.NoError(t, err)

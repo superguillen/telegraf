@@ -5,7 +5,10 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+<<<<<<< HEAD
 	_ "embed"
+=======
+>>>>>>> v1.22.4-customplugins
 	"encoding/binary"
 	"encoding/json"
 	"fmt"

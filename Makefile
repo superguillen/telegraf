@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ifneq (,$(filter $(OS),Windows_NT Windows))
 	EXEEXT=.exe
 endif
@@ -5,6 +6,16 @@ endif
 next_version := $(shell cat build_version.txt)
 tag := $(shell git describe --exact-match --tags 2>/dev/null)
 
+=======
+ifeq ($(OS),Windows_NT)
+	next_version := $(shell type build_version.txt)
+	tag := $(shell git describe --exact-match --tags 2> nul)
+else
+	next_version := $(shell cat build_version.txt)
+	tag := $(shell git describe --exact-match --tags 2>/dev/null)
+endif
+
+>>>>>>> v1.22.4-customplugins
 branch := $(shell git rev-parse --abbrev-ref HEAD)
 commit := $(shell git rev-parse --short=8 HEAD)
 glibc_version := 2.17
@@ -165,7 +176,11 @@ vet:
 .PHONY: lint-install
 lint-install:
 	@echo "Installing golangci-lint"
+<<<<<<< HEAD
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.0
+=======
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.45.2
+>>>>>>> v1.22.4-customplugins
 
 	@echo "Installing markdownlint"
 	npm install -g markdownlint-cli
@@ -236,10 +251,22 @@ docker-image:
 plugins/parsers/influx/machine.go: plugins/parsers/influx/machine.go.rl
 	ragel -Z -G2 $^ -o $@
 
+<<<<<<< HEAD
 .PHONY: ci
 ci:
 	docker build -t quay.io/influxdb/telegraf-ci:1.19.4 - < scripts/ci.docker
 	docker push quay.io/influxdb/telegraf-ci:1.19.4
+=======
+.PHONY: plugin-%
+plugin-%:
+	@echo "Starting dev environment for $${$(@)} input plugin..."
+	@docker-compose -f plugins/inputs/$${$(@)}/dev/docker-compose.yml up
+
+.PHONY: ci
+ci:
+	docker build -t quay.io/influxdb/telegraf-ci:1.18.1 - < scripts/ci.docker
+	docker push quay.io/influxdb/telegraf-ci:1.18.1
+>>>>>>> v1.22.4-customplugins
 
 .PHONY: install
 install: $(buildbin)

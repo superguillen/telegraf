@@ -162,7 +162,11 @@ func testMain(t *testing.T, code string, endpoint string, serverType ServerType)
 	}
 }
 
+<<<<<<< HEAD
 func TestLeoFSManagerMasterMetricsIntegration(t *testing.T) {
+=======
+func TestLeoFSManagerMasterMetrics(t *testing.T) {
+>>>>>>> v1.22.4-customplugins
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -170,7 +174,11 @@ func TestLeoFSManagerMasterMetricsIntegration(t *testing.T) {
 	testMain(t, fakeSNMP4Manager, "localhost:4020", ServerTypeManagerMaster)
 }
 
+<<<<<<< HEAD
 func TestLeoFSManagerSlaveMetricsIntegration(t *testing.T) {
+=======
+func TestLeoFSManagerSlaveMetrics(t *testing.T) {
+>>>>>>> v1.22.4-customplugins
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -178,7 +186,11 @@ func TestLeoFSManagerSlaveMetricsIntegration(t *testing.T) {
 	testMain(t, fakeSNMP4Manager, "localhost:4021", ServerTypeManagerSlave)
 }
 
+<<<<<<< HEAD
 func TestLeoFSStorageMetricsIntegration(t *testing.T) {
+=======
+func TestLeoFSStorageMetrics(t *testing.T) {
+>>>>>>> v1.22.4-customplugins
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -186,7 +198,11 @@ func TestLeoFSStorageMetricsIntegration(t *testing.T) {
 	testMain(t, fakeSNMP4Storage, "localhost:4010", ServerTypeStorage)
 }
 
+<<<<<<< HEAD
 func TestLeoFSGatewayMetricsIntegration(t *testing.T) {
+=======
+func TestLeoFSGatewayMetrics(t *testing.T) {
+>>>>>>> v1.22.4-customplugins
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}

@@ -8,7 +8,11 @@ executors:
     working_directory: '/go/src/github.com/influxdata/telegraf'
     resource_class: large
     docker:
+<<<<<<< HEAD
       - image: 'quay.io/influxdb/telegraf-ci:1.19.4'
+=======
+      - image: 'quay.io/influxdb/telegraf-ci:1.18.1'
+>>>>>>> v1.22.4-customplugins
     environment:
       GOFLAGS: -p=4
   mac:
@@ -86,6 +90,7 @@ commands:
           steps:
             - run: echo 'export RACE="-race"' >> $BASH_ENV
       - run: |
+<<<<<<< HEAD
           GOARCH=<< parameters.arch >> ./<< parameters.gotestsum >> -- ${RACE} -short -cover -coverprofile=coverage.out ./...
       - when:
           condition:
@@ -103,6 +108,11 @@ commands:
             - run:
                 name: "Create report"
                 command: /go/bin/goveralls -coverprofile=coverage.out -service=circle-ci -repotoken=${COVERALLS_TOKEN}
+=======
+          GOARCH=<< parameters.arch >> ./<< parameters.gotestsum >> --junitfile test-results/gotestsum-report.xml -- ${RACE} -short ./...
+      - store_test_results:
+          path: test-results
+>>>>>>> v1.22.4-customplugins
       - when:
           condition:
             equal: [ linux, << parameters.os >> ]
@@ -175,7 +185,11 @@ commands:
             - 'dist'
 jobs:
   test-go-linux:
+<<<<<<< HEAD
     executor: telegraf-ci
+=======
+    executor: go-1_17
+>>>>>>> v1.22.4-customplugins
     steps:
       - checkout
       - restore_cache:
@@ -197,7 +211,11 @@ jobs:
           paths:
             - '*'
   test-go-linux-386:
+<<<<<<< HEAD
     executor: telegraf-ci
+=======
+    executor: go-1_17
+>>>>>>> v1.22.4-customplugins
     steps:
       - checkout
       - restore_cache:
@@ -232,6 +250,7 @@ jobs:
       - test-go:
           os: windows
           gotestsum: "gotestsum.exe"
+<<<<<<< HEAD
 
   test-licenses:
     executor: telegraf-ci
@@ -247,6 +266,8 @@ jobs:
           key: go-mod-v1-{{ checksum "go.sum" }}
           paths:
             - '/go/pkg/mod'
+=======
+>>>>>>> v1.22.4-customplugins
 
   windows-package:
     parameters:

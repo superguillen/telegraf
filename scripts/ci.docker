@@ -1,4 +1,8 @@
+<<<<<<< HEAD:scripts/ci.docker
 FROM golang:1.19.4
+=======
+FROM golang:1.18.1
+>>>>>>> v1.22.4-customplugins:scripts/ci-1.17.docker
 
 RUN chmod -R 755 "$GOPATH"
 

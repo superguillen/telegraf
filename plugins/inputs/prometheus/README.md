@@ -96,6 +96,7 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   # kubernetes_field_selector = "spec.nodeName=$HOSTNAME"
 
   # cache refresh interval to set the interval for re-sync of pods list.
+  # cache refresh interval to set the interval for re-sync of pods list. 
   # Default is 60 minutes.
   # cache_refresh_interval = 60
 

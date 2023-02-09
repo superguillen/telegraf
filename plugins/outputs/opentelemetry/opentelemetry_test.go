@@ -2,6 +2,10 @@ package opentelemetry
 
 import (
 	"context"
+	"go.opentelemetry.io/collector/pdata/pcommon"
+	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/pmetric/pmetricotlp"
+	"google.golang.org/grpc/credentials/insecure"
 	"net"
 	"testing"
 	"time"
@@ -9,9 +13,12 @@ import (
 	"github.com/influxdata/influxdb-observability/common"
 	"github.com/influxdata/influxdb-observability/influx2otel"
 	"github.com/stretchr/testify/require"
+<<<<<<< HEAD
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/pmetric/pmetricotlp"
+=======
+>>>>>>> v1.22.4-customplugins
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
@@ -25,17 +32,30 @@ func TestOpenTelemetry(t *testing.T) {
 	expect := pmetric.NewMetrics()
 	{
 		rm := expect.ResourceMetrics().AppendEmpty()
+<<<<<<< HEAD
 		rm.Resource().Attributes().PutStr("host.name", "potato")
 		rm.Resource().Attributes().PutStr("attr-key", "attr-val")
+=======
+		rm.Resource().Attributes().InsertString("host.name", "potato")
+		rm.Resource().Attributes().InsertString("attr-key", "attr-val")
+>>>>>>> v1.22.4-customplugins
 		ilm := rm.ScopeMetrics().AppendEmpty()
 		ilm.Scope().SetName("My Library Name")
 		m := ilm.Metrics().AppendEmpty()
 		m.SetName("cpu_temp")
+<<<<<<< HEAD
 		m.SetEmptyGauge()
 		dp := m.Gauge().DataPoints().AppendEmpty()
 		dp.Attributes().PutStr("foo", "bar")
 		dp.SetTimestamp(pcommon.Timestamp(1622848686000000000))
 		dp.SetDoubleValue(87.332)
+=======
+		m.SetDataType(pmetric.MetricDataTypeGauge)
+		dp := m.Gauge().DataPoints().AppendEmpty()
+		dp.Attributes().InsertString("foo", "bar")
+		dp.SetTimestamp(pcommon.Timestamp(1622848686000000000))
+		dp.SetDoubleVal(87.332)
+>>>>>>> v1.22.4-customplugins
 	}
 	m := newMockOtelService(t)
 	t.Cleanup(m.Cleanup)
@@ -49,7 +69,11 @@ func TestOpenTelemetry(t *testing.T) {
 		Attributes:           map[string]string{"attr-key": "attr-val"},
 		metricsConverter:     metricsConverter,
 		grpcClientConn:       m.GrpcClient(),
+<<<<<<< HEAD
 		metricsServiceClient: pmetricotlp.NewGRPCClient(m.GrpcClient()),
+=======
+		metricsServiceClient: pmetricotlp.NewClient(m.GrpcClient()),
+>>>>>>> v1.22.4-customplugins
 	}
 
 	input := testutil.MustMetric(
@@ -69,17 +93,28 @@ func TestOpenTelemetry(t *testing.T) {
 
 	got := m.GotMetrics()
 
+<<<<<<< HEAD
 	marshaller := pmetric.JSONMarshaler{}
 	expectJSON, err := marshaller.MarshalMetrics(expect)
 	require.NoError(t, err)
 
 	gotJSON, err := marshaller.MarshalMetrics(got)
+=======
+	expectJSON, err := pmetric.NewJSONMarshaler().MarshalMetrics(expect)
+	require.NoError(t, err)
+
+	gotJSON, err := pmetric.NewJSONMarshaler().MarshalMetrics(got)
+>>>>>>> v1.22.4-customplugins
 	require.NoError(t, err)
 
 	require.JSONEq(t, string(expectJSON), string(gotJSON))
 }
 
+<<<<<<< HEAD
 var _ pmetricotlp.GRPCServer = (*mockOtelService)(nil)
+=======
+var _ pmetricotlp.Server = (*mockOtelService)(nil)
+>>>>>>> v1.22.4-customplugins
 
 type mockOtelService struct {
 	t          *testing.T
@@ -101,8 +136,13 @@ func newMockOtelService(t *testing.T) *mockOtelService {
 		grpcServer: grpcServer,
 	}
 
+<<<<<<< HEAD
 	pmetricotlp.RegisterGRPCServer(grpcServer, mockOtelService)
 	go func() { require.NoError(t, grpcServer.Serve(listener)) }()
+=======
+	pmetricotlp.RegisterServer(grpcServer, mockOtelService)
+	go func() { assert.NoError(t, grpcServer.Serve(listener)) }()
+>>>>>>> v1.22.4-customplugins
 
 	grpcClient, err := grpc.Dial(listener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	require.NoError(t, err)
@@ -128,6 +168,7 @@ func (m *mockOtelService) Address() string {
 	return m.listener.Addr().String()
 }
 
+<<<<<<< HEAD
 func (m *mockOtelService) Export(ctx context.Context, request pmetricotlp.ExportRequest) (pmetricotlp.ExportResponse, error) {
 	m.metrics = pmetric.NewMetrics()
 	request.Metrics().CopyTo(m.metrics)
@@ -135,4 +176,12 @@ func (m *mockOtelService) Export(ctx context.Context, request pmetricotlp.Export
 	require.Equal(m.t, []string{"header1"}, ctxMetadata.Get("test"))
 	require.True(m.t, ok)
 	return pmetricotlp.NewExportResponse(), nil
+=======
+func (m *mockOtelService) Export(ctx context.Context, request pmetricotlp.Request) (pmetricotlp.Response, error) {
+	m.metrics = request.Metrics().Clone()
+	ctxMetadata, ok := metadata.FromIncomingContext(ctx)
+	assert.Equal(m.t, []string{"header1"}, ctxMetadata.Get("test"))
+	assert.True(m.t, ok)
+	return pmetricotlp.Response{}, nil
+>>>>>>> v1.22.4-customplugins
 }

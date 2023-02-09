@@ -19,14 +19,23 @@ jobs:
     name: lint-pr-changes
     runs-on: ubuntu-latest
     steps:
+<<<<<<< HEAD
       - uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - uses: actions/checkout@v3
+=======
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+>>>>>>> v1.22.4-customplugins
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
+<<<<<<< HEAD
           version: v1.50.0
+=======
+          version: v1.45.2
+>>>>>>> v1.22.4-customplugins
           only-new-issues: true
           args: --timeout 15m0s --verbose
   golangci-master:
@@ -41,6 +50,10 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
+<<<<<<< HEAD
           version: v1.50.0
+=======
+          version: v1.45.2
+>>>>>>> v1.22.4-customplugins
           only-new-issues: true
           args: --timeout 15m0s --issues-exit-code=0 --verbose

@@ -25,7 +25,12 @@ func TestFileWriter_NoRotation(t *testing.T) {
 }
 
 func TestFileWriter_TimeRotation(t *testing.T) {
+<<<<<<< HEAD
 	tempDir := t.TempDir()
+=======
+	tempDir, err := os.MkdirTemp("", "RotationTime")
+	require.NoError(t, err)
+>>>>>>> v1.22.4-customplugins
 	interval, _ := time.ParseDuration("10ms")
 	writer, err := NewFileWriter(filepath.Join(tempDir, "test"), interval, 0, -1)
 	require.NoError(t, err)
@@ -41,10 +46,18 @@ func TestFileWriter_TimeRotation(t *testing.T) {
 }
 
 func TestFileWriter_ReopenTimeRotation(t *testing.T) {
+<<<<<<< HEAD
 	tempDir := t.TempDir()
 	interval, _ := time.ParseDuration("10ms")
 	filePath := filepath.Join(tempDir, "test.log")
 	err := os.WriteFile(filePath, []byte("Hello World"), 0644)
+=======
+	tempDir, err := os.MkdirTemp("", "RotationTime")
+	require.NoError(t, err)
+	interval, _ := time.ParseDuration("10ms")
+	filePath := filepath.Join(tempDir, "test.log")
+	err = os.WriteFile(filePath, []byte("Hello World"), 0644)
+>>>>>>> v1.22.4-customplugins
 	time.Sleep(interval)
 	assert.NoError(t, err)
 	writer, err := NewFileWriter(filepath.Join(tempDir, "test.log"), interval, 0, -1)
@@ -91,7 +104,12 @@ func TestFileWriter_DeleteArchives(t *testing.T) {
 		t.Skip("Skipping long test in short mode")
 	}
 
+<<<<<<< HEAD
 	tempDir := t.TempDir()
+=======
+	tempDir, err := os.MkdirTemp("", "RotationDeleteArchives")
+	require.NoError(t, err)
+>>>>>>> v1.22.4-customplugins
 	maxSize := int64(5)
 	writer, err := NewFileWriter(filepath.Join(tempDir, "test.log"), 0, maxSize, 2)
 	require.NoError(t, err)

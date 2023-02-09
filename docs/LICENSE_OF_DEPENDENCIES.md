@@ -11,12 +11,18 @@ following works:
 - github.com/Azure/azure-event-hubs-go [MIT License](https://github.com/Azure/azure-event-hubs-go/blob/master/LICENSE)
 - github.com/Azure/azure-kusto-go [MIT License](https://github.com/Azure/azure-kusto-go/blob/master/LICENSE)
 - github.com/Azure/azure-pipeline-go [MIT License](https://github.com/Azure/azure-pipeline-go/blob/master/LICENSE)
+<<<<<<< HEAD
 - github.com/Azure/azure-sdk-for-go [MIT License](https://github.com/Azure/azure-sdk-for-go/blob/main/LICENSE.txt)
 - github.com/Azure/azure-sdk-for-go/sdk/azcore [MIT License](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/azcore/LICENSE.txt)
 - github.com/Azure/azure-sdk-for-go/sdk/azidentity [MIT License](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/azidentity/LICENSE.txt)
 - github.com/Azure/azure-sdk-for-go/sdk/internal [MIT License](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/internal/LICENSE.txt)
 - github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/monitor/armmonitor [MIT License](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/resourcemanager/monitor/armmonitor/LICENSE.txt)
 - github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources [MIT License](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/resourcemanager/resources/armresources/LICENSE.txt)
+=======
+- github.com/Azure/azure-sdk-for-go [Apache License 2.0](https://github.com/Azure/azure-sdk-for-go/blob/master/LICENSE)
+- github.com/Azure/azure-sdk-for-go/sdk/azcore [MIT License](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/azcore/LICENSE.txt)
+- github.com/Azure/azure-sdk-for-go/sdk/internal [MIT License](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/internal/LICENSE.txt)
+>>>>>>> v1.22.4-customplugins
 - github.com/Azure/azure-sdk-for-go/sdk/storage/azblob [MIT License](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/storage/azblob/LICENSE.txt)
 - github.com/Azure/azure-storage-blob-go [MIT License](https://github.com/Azure/azure-storage-blob-go/blob/master/LICENSE)
 - github.com/Azure/azure-storage-queue-go [MIT License](https://github.com/Azure/azure-storage-queue-go/blob/master/LICENSE)
@@ -140,7 +146,10 @@ following works:
 - github.com/golang/protobuf [BSD 3-Clause "New" or "Revised" License](https://github.com/golang/protobuf/blob/master/LICENSE)
 - github.com/golang/snappy [BSD 3-Clause "New" or "Revised" License](https://github.com/golang/snappy/blob/master/LICENSE)
 - github.com/google/flatbuffers [Apache License 2.0](https://github.com/google/flatbuffers/blob/master/LICENSE.txt)
+<<<<<<< HEAD
 - github.com/google/gnostic [Apache License 2.0](https://github.com/google/gnostic/blob/master/LICENSE)
+=======
+>>>>>>> v1.22.4-customplugins
 - github.com/google/gnxi [Apache License 2.0](https://github.com/google/gnxi/blob/master/LICENSE)
 - github.com/google/go-cmp [BSD 3-Clause "New" or "Revised" License](https://github.com/google/go-cmp/blob/master/LICENSE)
 - github.com/google/go-github [BSD 3-Clause "New" or "Revised" License](https://github.com/google/go-github/blob/master/LICENSE)
@@ -209,7 +218,10 @@ following works:
 - github.com/karrick/godirwalk [BSD 2-Clause "Simplified" License](https://github.com/karrick/godirwalk/blob/master/LICENSE)
 - github.com/kballard/go-shellquote [MIT License](https://github.com/kballard/go-shellquote/blob/master/LICENSE)
 - github.com/klauspost/compress [BSD 3-Clause Clear License](https://github.com/klauspost/compress/blob/master/LICENSE)
+<<<<<<< HEAD
 - github.com/kolo/xmlrpc [MIT License](https://github.com/kolo/xmlrpc/blob/master/LICENSE)
+=======
+>>>>>>> v1.22.4-customplugins
 - github.com/kylelemons/godebug [Apache License 2.0](https://github.com/kylelemons/godebug/blob/master/LICENSE)
 - github.com/leodido/ragel-machinery [MIT License](https://github.com/leodido/ragel-machinery/blob/develop/LICENSE)
 - github.com/logzio/azure-monitor-metrics-receiver [MIT License](https://github.com/logzio/azure-monitor-metrics-receiver/blob/master/LICENSE)
@@ -292,8 +304,11 @@ following works:
 - github.com/spf13/pflag [BSD 3-Clause "New" or "Revised" License](https://github.com/spf13/pflag/blob/master/LICENSE)
 - github.com/stretchr/objx [MIT License](https://github.com/stretchr/objx/blob/master/LICENSE)
 - github.com/stretchr/testify [MIT License](https://github.com/stretchr/testify/blob/master/LICENSE)
+<<<<<<< HEAD
 - github.com/testcontainers/testcontainers-go [MIT License](https://github.com/testcontainers/testcontainers-go/blob/main/LICENSE)
 - github.com/thomasklein94/packer-plugin-libvirt [Mozilla Public License 2.0](https://github.com/thomasklein94/packer-plugin-libvirt/blob/main/LICENSE)
+=======
+>>>>>>> v1.22.4-customplugins
 - github.com/tidwall/gjson [MIT License](https://github.com/tidwall/gjson/blob/master/LICENSE)
 - github.com/tidwall/match [MIT License](https://github.com/tidwall/match/blob/master/LICENSE)
 - github.com/tidwall/pretty [MIT License](https://github.com/tidwall/pretty/blob/master/LICENSE)
@@ -323,7 +338,11 @@ following works:
 - github.com/yusufpapurcu/wmi [MIT License](https://github.com/yusufpapurcu/wmi/blob/master/LICENSE)
 - go.mongodb.org/mongo-driver [Apache License 2.0](https://github.com/mongodb/mongo-go-driver/blob/master/LICENSE)
 - go.opencensus.io [Apache License 2.0](https://github.com/census-instrumentation/opencensus-go/blob/master/LICENSE)
+<<<<<<< HEAD
 - go.opentelemetry.io/collector/pdata [Apache License 2.0](https://github.com/open-telemetry/opentelemetry-collector/blob/main/LICENSE)ICENSE)
+=======
+- go.opentelemetry.io/collector/pdata [Apache License 2.0](https://github.com/open-telemetry/opentelemetry-collector/blob/main/LICENSE)
+>>>>>>> v1.22.4-customplugins
 - go.starlark.net [BSD 3-Clause "New" or "Revised" License](https://github.com/google/starlark-go/blob/master/LICENSE)
 - go.uber.org/atomic [MIT License](https://pkg.go.dev/go.uber.org/atomic?tab=licenses)
 - go.uber.org/multierr [MIT License](https://pkg.go.dev/go.uber.org/multierr?tab=licenses)

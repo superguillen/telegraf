@@ -1,6 +1,10 @@
 //go:build windows
 
+<<<<<<< HEAD
 //go:generate ../../scripts/windows-gen-syso.sh $GOARCH
+=======
+//go:generate goversioninfo -icon=../../assets/windows/tiger.ico
+>>>>>>> v1.22.4-customplugins
 
 package main
 

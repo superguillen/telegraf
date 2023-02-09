@@ -472,7 +472,11 @@ FROM (
 		,REPLACE(@@SERVERNAME,'\',':') AS [sql_instance]
 		,DB_NAME() as [database_name]
 		,s.[session_id]
+<<<<<<< HEAD
 		,r.[request_id]
+=======
+		,ISNULL(r.[request_id], 0) as [request_id]	
+>>>>>>> v1.22.4-customplugins
 		,DB_NAME(COALESCE(r.[database_id], s.[database_id])) AS [session_db_name]
 		,COALESCE(r.[status], s.[status]) AS [status]
 		,COALESCE(r.[cpu_time], s.[cpu_time]) AS [cpu_time_ms]

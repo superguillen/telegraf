@@ -22,7 +22,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+<<<<<<< HEAD
 	"k8s.io/client-go/tools/clientcmd"
+=======
+>>>>>>> v1.22.4-customplugins
 )
 
 type podMetadata struct {
@@ -146,7 +149,15 @@ func (p *Prometheus) watchPod(ctx context.Context, clientset *kubernetes.Clients
 
 			pod, _ := clientset.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 
+<<<<<<< HEAD
 			if shouldScrapePod(pod, p) {
+=======
+			if pod.Annotations["prometheus.io/scrape"] == "true" &&
+				podReady(pod.Status.ContainerStatuses) &&
+				podHasMatchingNamespace(pod, p) &&
+				podHasMatchingLabelSelector(pod, p.podLabelSelector) &&
+				podHasMatchingFieldSelector(pod, p.podFieldSelector) {
+>>>>>>> v1.22.4-customplugins
 				registerPod(pod, p)
 			}
 		},
@@ -163,7 +174,15 @@ func (p *Prometheus) watchPod(ctx context.Context, clientset *kubernetes.Clients
 
 			newPod, _ := clientset.CoreV1().Pods(newNamespace).Get(ctx, newName, metav1.GetOptions{})
 
+<<<<<<< HEAD
 			if shouldScrapePod(newPod, p) {
+=======
+			if newPod.Annotations["prometheus.io/scrape"] == "true" &&
+				podReady(newPod.Status.ContainerStatuses) &&
+				podHasMatchingNamespace(newPod, p) &&
+				podHasMatchingLabelSelector(newPod, p.podLabelSelector) &&
+				podHasMatchingFieldSelector(newPod, p.podFieldSelector) {
+>>>>>>> v1.22.4-customplugins
 				if newPod.GetDeletionTimestamp() == nil {
 					registerPod(newPod, p)
 				}
@@ -181,7 +200,15 @@ func (p *Prometheus) watchPod(ctx context.Context, clientset *kubernetes.Clients
 
 			oldPod, _ := clientset.CoreV1().Pods(oldNamespace).Get(ctx, oldName, metav1.GetOptions{})
 
+<<<<<<< HEAD
 			if shouldScrapePod(oldPod, p) {
+=======
+			if oldPod.Annotations["prometheus.io/scrape"] == "true" &&
+				podReady(oldPod.Status.ContainerStatuses) &&
+				podHasMatchingNamespace(oldPod, p) &&
+				podHasMatchingLabelSelector(oldPod, p.podLabelSelector) &&
+				podHasMatchingFieldSelector(oldPod, p.podFieldSelector) {
+>>>>>>> v1.22.4-customplugins
 				if oldPod.GetDeletionTimestamp() != nil {
 					unregisterPod(oldPod, p)
 				}
@@ -200,7 +227,15 @@ func (p *Prometheus) watchPod(ctx context.Context, clientset *kubernetes.Clients
 
 			pod, _ := clientset.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 
+<<<<<<< HEAD
 			if shouldScrapePod(pod, p) {
+=======
+			if pod.Annotations["prometheus.io/scrape"] == "true" &&
+				podReady(pod.Status.ContainerStatuses) &&
+				podHasMatchingNamespace(pod, p) &&
+				podHasMatchingLabelSelector(pod, p.podLabelSelector) &&
+				podHasMatchingFieldSelector(pod, p.podFieldSelector) {
+>>>>>>> v1.22.4-customplugins
 				if pod.GetDeletionTimestamp() != nil {
 					unregisterPod(pod, p)
 				}

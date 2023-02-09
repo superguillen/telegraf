@@ -210,7 +210,11 @@ func (a *Aerospike) parseNodeInfo(acc telegraf.Accumulator, stats map[string]str
 		if len(parts) < 2 {
 			continue
 		}
+<<<<<<< HEAD
 		key := strings.ReplaceAll(parts[0], "-", "_")
+=======
+		key := strings.Replace(parts[0], "-", "_", -1)
+>>>>>>> v1.22.4-customplugins
 		nFields[key] = parseAerospikeValue(key, parts[1])
 	}
 	acc.AddFields("aerospike_node", nFields, nTags, time.Now())

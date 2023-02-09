@@ -603,12 +603,20 @@ SELECT
 	,replica_updateability
 	,[session_db_name],[open_transaction]
 FROM (
+<<<<<<< HEAD
 	SELECT
+=======
+	SELECT	
+>>>>>>> v1.22.4-customplugins
 		'sqlserver_requests' AS [measurement]
 		,REPLACE(@@SERVERNAME,'\',':') AS [sql_instance]
 		,DB_NAME() as [database_name]
 		,s.[session_id]
+<<<<<<< HEAD
 		,r.[request_id]
+=======
+		,ISNULL(r.[request_id], 0) as [request_id]
+>>>>>>> v1.22.4-customplugins
 		,DB_NAME(COALESCE(r.[database_id], s.[database_id])) AS [session_db_name]
 		,COALESCE(r.[status], s.[status]) AS [status]
 		,COALESCE(r.[cpu_time], s.[cpu_time]) AS [cpu_time_ms]
@@ -626,6 +634,7 @@ FROM (
 		,s.[login_name]
 		,COALESCE(r.[open_transaction_count], s.[open_transaction_count]) AS [open_transaction]
 		,LEFT (CASE COALESCE(r.[transaction_isolation_level], s.[transaction_isolation_level])
+<<<<<<< HEAD
 			WHEN 0 THEN '0-Read Committed'
 			WHEN 1 THEN '1-Read Uncommitted (NOLOCK)'
 			WHEN 2 THEN '2-Read Committed'
@@ -633,11 +642,24 @@ FROM (
 			WHEN 4 THEN '4-Serializable'
 			WHEN 5 THEN '5-Snapshot'
 			ELSE CONVERT (varchar(30), r.[transaction_isolation_level]) + '-UNKNOWN'
+=======
+			WHEN 0 THEN '0-Read Committed' 
+			WHEN 1 THEN '1-Read Uncommitted (NOLOCK)' 
+			WHEN 2 THEN '2-Read Committed' 
+			WHEN 3 THEN '3-Repeatable Read' 
+			WHEN 4 THEN '4-Serializable' 
+			WHEN 5 THEN '5-Snapshot' 
+			ELSE CONVERT (varchar(30), r.[transaction_isolation_level]) + '-UNKNOWN' 
+>>>>>>> v1.22.4-customplugins
 		END, 30) AS [transaction_isolation_level]
 		,r.[granted_query_memory] AS [granted_query_memory_pages]
 		,r.[percent_complete]
 		,SUBSTRING(
+<<<<<<< HEAD
 			qt.[text],
+=======
+			qt.[text], 
+>>>>>>> v1.22.4-customplugins
 			r.[statement_start_offset] / 2 + 1,
 			(CASE WHEN r.[statement_end_offset] = -1
 				THEN DATALENGTH(qt.[text])
@@ -653,7 +675,11 @@ FROM (
 		,s.[is_user_process]
 		,[blocking_or_blocked] = COUNT(*) OVER(PARTITION BY ISNULL(NULLIF(r.[blocking_session_id], 0),s.[session_id]))
 	FROM sys.dm_exec_sessions AS s
+<<<<<<< HEAD
 	LEFT OUTER JOIN sys.dm_exec_requests AS r
+=======
+	LEFT OUTER JOIN sys.dm_exec_requests AS r 
+>>>>>>> v1.22.4-customplugins
 		ON s.[session_id] = r.[session_id]
 	OUTER APPLY sys.dm_exec_sql_text(r.[sql_handle]) AS qt
 ) AS data

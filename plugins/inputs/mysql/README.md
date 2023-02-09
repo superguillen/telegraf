@@ -300,6 +300,8 @@ for them. It has following fields:
   * auto_increment_column_max(int, number)
 * InnoDB metrics - all metrics of information_schema.INNODB_METRICS with a
   status "enabled". For MariaDB, `mariadb_dialect = true` to use `ENABLED=1`.
+* InnoDB metrics - all metrics of information_schema.INNODB_METRICS with a status "enabled". For MariaDB,
+`mariadb_dialect = true` to use `ENABLED=1`.
 * Perf table lock waits - gathers total number and time for SQL and external
 lock waits events for each table and operation. It has following fields.
 The unit of fields varies by the tags.

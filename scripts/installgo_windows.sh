@@ -2,7 +2,11 @@
 
 set -eux
 
+<<<<<<< HEAD
 GO_VERSION="1.19.4"
+=======
+GO_VERSION="1.18.1"
+>>>>>>> v1.22.4-customplugins
 
 setup_go () {
     choco upgrade golang --allow-downgrade --version=${GO_VERSION}

@@ -3,8 +3,13 @@ package opentelemetry
 
 import (
 	"context"
+<<<<<<< HEAD
 	ntls "crypto/tls"
 	_ "embed"
+=======
+	"go.opentelemetry.io/collector/pdata/pmetric/pmetricotlp"
+	"google.golang.org/grpc/credentials/insecure"
+>>>>>>> v1.22.4-customplugins
 	"time"
 
 	"github.com/influxdata/influxdb-observability/common"
@@ -21,6 +26,14 @@ import (
 	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/plugins/common/tls"
 	"github.com/influxdata/telegraf/plugins/outputs"
+<<<<<<< HEAD
+=======
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	// This causes the gRPC library to register gzip compression.
+	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/metadata"
+>>>>>>> v1.22.4-customplugins
 )
 
 var userAgent = internal.ProductToken()
@@ -42,7 +55,11 @@ type OpenTelemetry struct {
 
 	metricsConverter     *influx2otel.LineProtocolToOtelMetrics
 	grpcClientConn       *grpc.ClientConn
+<<<<<<< HEAD
 	metricsServiceClient pmetricotlp.GRPCClient
+=======
+	metricsServiceClient pmetricotlp.Client
+>>>>>>> v1.22.4-customplugins
 	callOptions          []grpc.CallOption
 }
 
@@ -99,7 +116,11 @@ func (o *OpenTelemetry) Connect() error {
 		return err
 	}
 
+<<<<<<< HEAD
 	metricsServiceClient := pmetricotlp.NewGRPCClient(grpcClientConn)
+=======
+	metricsServiceClient := pmetricotlp.NewClient(grpcClientConn)
+>>>>>>> v1.22.4-customplugins
 
 	o.metricsConverter = metricsConverter
 	o.grpcClientConn = grpcClientConn
@@ -147,7 +168,12 @@ func (o *OpenTelemetry) Write(metrics []telegraf.Metric) error {
 		}
 	}
 
+<<<<<<< HEAD
 	md := pmetricotlp.NewExportRequestFromMetrics(batch.GetMetrics())
+=======
+	md := pmetricotlp.NewRequest()
+	md.SetMetrics(batch.GetMetrics())
+>>>>>>> v1.22.4-customplugins
 	if md.Metrics().ResourceMetrics().Len() == 0 {
 		return nil
 	}

@@ -242,7 +242,11 @@ func newDiscoveryTool(
 	}
 
 	if len(dscReq) == 0 || len(cli) == 0 {
+<<<<<<< HEAD
 		return nil, errors.Errorf("can't build discovery request for project: %q, regions: %v", project, regions)
+=======
+		return nil, errors.Errorf("Can't build discovery request for project: %q,\nregions: %v", project, regions)
+>>>>>>> v1.22.4-customplugins
 	}
 
 	return &discoveryTool{

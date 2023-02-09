@@ -4,6 +4,9 @@ package opentelemetry
 import (
 	_ "embed"
 	"fmt"
+	"go.opentelemetry.io/collector/pdata/plog/plogotlp"
+	"go.opentelemetry.io/collector/pdata/pmetric/pmetricotlp"
+	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 	"net"
 	"sync"
 	"time"
@@ -18,6 +21,11 @@ import (
 	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/plugins/common/tls"
 	"github.com/influxdata/telegraf/plugins/inputs"
+<<<<<<< HEAD
+=======
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+>>>>>>> v1.22.4-customplugins
 )
 
 //go:embed sample.conf
@@ -61,13 +69,22 @@ func (o *OpenTelemetry) Start(accumulator telegraf.Accumulator) error {
 	influxWriter := &writeToAccumulator{accumulator}
 	o.grpcServer = grpc.NewServer(grpcOptions...)
 
+<<<<<<< HEAD
 	ptraceotlp.RegisterGRPCServer(o.grpcServer, newTraceService(logger, influxWriter))
+=======
+	ptraceotlp.RegisterServer(o.grpcServer, newTraceService(logger, influxWriter))
+>>>>>>> v1.22.4-customplugins
 	ms, err := newMetricsService(logger, influxWriter, o.MetricsSchema)
 	if err != nil {
 		return err
 	}
+<<<<<<< HEAD
 	pmetricotlp.RegisterGRPCServer(o.grpcServer, ms)
 	plogotlp.RegisterGRPCServer(o.grpcServer, newLogsService(logger, influxWriter))
+=======
+	pmetricotlp.RegisterServer(o.grpcServer, ms)
+	plogotlp.RegisterServer(o.grpcServer, newLogsService(logger, influxWriter))
+>>>>>>> v1.22.4-customplugins
 
 	if o.listener == nil {
 		o.listener, err = net.Listen("tcp", o.ServiceAddress)
