@@ -17,12 +17,14 @@ import (
 
 type NetStatsConnections struct {
 	ps                             system.PS
-	ListenProcessDetail            bool   `toml:"listen_process_detail"`
-	RemoteConnections              bool   `toml:"remote_connections"`
-	RemoteConnectionsProcessDetail bool   `toml:"remote_connections_process_detail"`
-	SocketsStatsEnabled            bool   `toml:"sockets_stats_enabled"`
-	SocketsStatsMetrics            string `toml:"sockets_stats_metrics"`
-	SocketsStatsNames              string `toml:"sockets_stats_names"`
+	Log                            telegraf.Logger
+	ListenProcessDetail            bool     `toml:"listen_process_detail"`
+	RemoteConnections              bool     `toml:"remote_connections"`
+	RemoteConnectionsProcessDetail bool     `toml:"remote_connections_process_detail"`
+	SocketsStatsEnabled            bool     `toml:"sockets_stats_enabled"`
+	SocketsStatsGroupMetrics       string   `toml:"sockets_stats_group_metrics"`
+	SocketsStatsOperations         string   `toml:"sockets_stats_operatioms"`
+	SocketsStatsCustomMetrics      []string `toml:"sockets_stats_custom_metrics"`
 }
 
 type PortData struct {
@@ -73,11 +75,16 @@ var tcpstatProcessSampleConfig = `
   ##
   # remote_connections_process_detail = true
   ##
-  ## By default, telegraf don't collect Socket stats
+  ## By default, telegraf don't collect Socket stats (high cardinality)
   ##
   # sockets_stats_enabled = true
-  # sockets_stats_metrics = "BASIC"
-  # sockets_stats_names = "BASIC"
+  ### Collect BASIC group of metrics (use "FULL" to collect all avaliable TCPINFO kernel stats)
+  # sockets_stats_group_metrics = "BASIC"
+  ### If need Collect CUSTOM group of metrics (for example Notsent_bytes), use "CUSTOM" with sockets_stats_custom_metrics parameter.
+  # sockets_stats_group_metrics = "CUSTOM"
+  # sockets_stats_custom_metrics = ["Segs_out","Notsent_bytes","Rtt"]
+  ### Collect BASIC group of stadistics operations ["mean", "p99"] (use "FULL" to collect max,mix,mean,p75,p95,p99)
+  # sockets_stats_operatioms = "BASIC"
   ##
 `
 
@@ -97,12 +104,45 @@ func (s *NetStatsConnections) Gather(acc telegraf.Accumulator) error {
 	if s.SocketsStatsEnabled {
 		metrics := sockstats.BASIC_METRICS
 		stats := sockstats.BASIC_STATS
+		group_stats := sockstats.BasicStatsMetrics
 
-		if s.SocketsStatsMetrics == "FULL" {
-			metrics = sockstats.FULL_METRICS
-		}
-		if s.SocketsStatsNames == "FULL" {
+		s.Log.Info("Socket Stadistics collection enabled")
+
+		switch s.SocketsStatsOperations {
+		case "FULL":
 			stats = sockstats.FULL_STATS
+			group_stats = sockstats.FullStatsMetrics
+			s.Log.Infof("Socket Stadistics switched to FULL_METRICS stats collection.")
+		default:
+			s.Log.Infof("Socket Stadistics switched to BASIC stats collection.")
+		}
+
+		switch s.SocketsStatsGroupMetrics {
+		case "FULL":
+			metrics = sockstats.FULL_METRICS
+			s.Log.Infof("Socket Stadistics switched to FULL_METRICS metric collection.")
+		case "CUSTOM":
+			metrics = s.SocketsStatsCustomMetrics
+			s.Log.Infof("Socket Stadistics switched to CUSTOM metric collection. (please validate metric names)")
+		default:
+			s.Log.Infof("Socket Stadistics switched to BASIC metric collection.")
+		}
+
+		s.Log.Infof("Socket Stadistics to collect:")
+
+		metric_count := 0
+		for _, metric := range metrics {
+			if stat, ok := group_stats[metric]; ok {
+				metric_count = 1
+				s.Log.Infof("metric [%v] stats: %+v", metric, stat)
+			} else {
+				s.Log.Warnf("Metric [%v] is not valid, please review documentation.", metric)
+			}
+		}
+
+		if metric_count == 0 {
+			s.Log.Warnf("Socket Stadistics has no valid metric names, swiched to BASIC metric collection.")
+			metrics = sockstats.BASIC_METRICS
 		}
 
 		globalConnStadistics, err = sockstats.GetConnStatistics(metrics, stats)
@@ -351,9 +391,11 @@ func (s *NetStatsConnections) Gather(acc telegraf.Accumulator) error {
 func init() {
 	inputs.Add("netstat_connections", func() telegraf.Input {
 		return &NetStatsConnections{ps: system.NewSystemPS(),
-			RemoteConnections:   false,
-			SocketsStatsEnabled: false,
-			SocketsStatsMetrics: "BASIC",
-			SocketsStatsNames:   "BASIC"}
+			RemoteConnections:         false,
+			SocketsStatsEnabled:       false,
+			SocketsStatsGroupMetrics:  "BASIC",
+			SocketsStatsOperations:    "BASIC",
+			SocketsStatsCustomMetrics: []string{}}
 	})
 }
+
