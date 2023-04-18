@@ -23,7 +23,7 @@ type NetStatsConnections struct {
 	RemoteConnectionsProcessDetail bool     `toml:"remote_connections_process_detail"`
 	SocketsStatsEnabled            bool     `toml:"sockets_stats_enabled"`
 	SocketsStatsGroupMetrics       string   `toml:"sockets_stats_group_metrics"`
-	SocketsStatsOperations         string   `toml:"sockets_stats_operatioms"`
+	SocketsStatsOperations         string   `toml:"sockets_stats_operations"`
 	SocketsStatsCustomMetrics      []string `toml:"sockets_stats_custom_metrics"`
 }
 
@@ -84,7 +84,7 @@ var tcpstatProcessSampleConfig = `
   # sockets_stats_group_metrics = "CUSTOM"
   # sockets_stats_custom_metrics = ["Segs_out","Notsent_bytes","Rtt"]
   ### Collect BASIC group of stadistics operations ["mean", "p99"] (use "FULL" to collect max,mix,mean,p75,p95,p99)
-  # sockets_stats_operatioms = "BASIC"
+  # sockets_stats_operations = "BASIC"
   ##
 `
 
