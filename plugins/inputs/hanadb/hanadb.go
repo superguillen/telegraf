@@ -2342,7 +2342,7 @@ func (m *HanaDB) gatherSDIRemoteSubscriptionsStadistics(hi *HanaInstance, db *sq
 		rejected_msg_count          int64
 		last_msg_received_secs      int64
 		last_msg_applied_secs       int64
-		last_msg_applied_delay_secs uint8
+		last_msg_applied_delay_secs int64
 		receiver_latency_ms         driver.Decimal
 		applier_latency_ms          driver.Decimal
 	)
