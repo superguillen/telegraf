@@ -775,7 +775,8 @@ const (
 			-------------
 			WHEN RS.STATISTIC_NUMBER = '10001' THEN 'receiver_avg_record_process_time_microsecs'
 			WHEN RS.STATISTIC_NUMBER = '10002' THEN 'distributor_avg_record_process_time_microsecs'
-			WHEN RS.STATISTIC_NUMBER = '10004' THEN 'applier_avg_record_process_time_microsecs'
+			WHEN RS.STATISTIC_NUMBER = '10003' THEN 'applier_avg_record_process_time_microsecs'
+			WHEN RS.STATISTIC_NUMBER = '10004' THEN 'applier_avg_record_process_time_for_subscription_microsecs'
 			-------------
 			WHEN RS.STATISTIC_NUMBER = '10006' THEN 'receiver_meta_and_data_records_processed_count'
 			WHEN RS.STATISTIC_NUMBER = '10007' THEN 'distributor_meta_and_data_records_processed_count'
@@ -843,6 +844,7 @@ const (
 			or STATISTIC_NAME LIKE '%10019%'
 			or STATISTIC_NAME LIKE '%10001%'
 			or STATISTIC_NAME LIKE '%10002%'
+			or STATISTIC_NAME LIKE '%10003%'
 			or STATISTIC_NAME LIKE '%10004%'
 			or STATISTIC_NAME LIKE '%10006%'
 			or STATISTIC_NAME LIKE '%10007%'
