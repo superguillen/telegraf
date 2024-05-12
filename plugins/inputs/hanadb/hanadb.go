@@ -814,6 +814,7 @@ const (
 			  WHEN RS.STATISTIC_NUMBER = '10014' THEN 'applier_data_records_processed_for_subscription_count'
 			  -------------
 			  WHEN RS.STATISTIC_NUMBER = '10021' THEN 'applier_dml_insert_records_processed_for_subscription_count'
+			  WHEN RS.STATISTIC_NUMBER = '10022' THEN 'applier_dml_upsert_records_processed_for_subscription_count'
 			  WHEN RS.STATISTIC_NUMBER = '10023' THEN 'applier_dml_update_records_processed_for_subscription_count'
 			  -------------
 			  WHEN RS.STATISTIC_NUMBER = '10027' THEN 'last_updated_secs'
@@ -883,6 +884,7 @@ const (
 			 or STATISTIC_NAME LIKE '%10013%'
 			 or STATISTIC_NAME LIKE '%10014%'
 			 or STATISTIC_NAME LIKE '%10021%'
+			 or STATISTIC_NAME LIKE '%10022%'
 			 or STATISTIC_NAME LIKE '%10023%'
 			 or STATISTIC_NAME LIKE '%10027%'
 			 or STATISTIC_NAME LIKE '%40112%'
