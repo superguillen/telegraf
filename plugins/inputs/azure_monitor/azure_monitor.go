@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	receiver "github.com/logzio/azure-monitor-metrics-receiver"
 )
@@ -14,7 +15,7 @@ import (
 type AzureMonitor struct {
 	SubscriptionID       string                 `toml:"subscription_id"`
 	ClientID             string                 `toml:"client_id"`
-	ClientSecret         string                 `toml:"client_secret"`
+	ClientSecret         config.Secret          `toml:"client_secret"`
 	TenantID             string                 `toml:"tenant_id"`
 	ResourceTargets      []*ResourceTarget      `toml:"resource_target"`
 	ResourceGroupTargets []*ResourceGroupTarget `toml:"resource_group_target"`
@@ -59,7 +60,19 @@ func (am *AzureMonitor) SampleConfig() string {
 // Init is for setup, and validating config.
 func (am *AzureMonitor) Init() error {
 	var err error
-	am.azureClients, err = am.azureManager.createAzureClients(am.SubscriptionID, am.ClientID, am.ClientSecret, am.TenantID)
+
+	var clientSecret string
+	if !am.ClientSecret.Empty() {
+		clientSecret_secret, err := am.ClientSecret.Get()
+		if err != nil {
+			return err
+		} else {
+			clientSecret = clientSecret_secret.String()
+		}
+		defer clientSecret_secret.Destroy()
+	}
+
+	am.azureClients, err = am.azureManager.createAzureClients(am.SubscriptionID, am.ClientID, clientSecret, am.TenantID)
 	if err != nil {
 		return err
 	}
@@ -149,7 +162,19 @@ func (am *AzureMonitor) setReceiver() error {
 
 	targets := receiver.NewTargets(resourceTargets, resourceGroupTargets, subscriptionTargets)
 	var err error
-	am.receiver, err = receiver.NewAzureMonitorMetricsReceiver(am.SubscriptionID, am.ClientID, am.ClientSecret, am.TenantID, targets, am.azureClients)
+
+	var clientSecret string
+	if !am.ClientSecret.Empty() {
+		clientSecret_secret, err := am.ClientSecret.Get()
+		if err != nil {
+			return err
+		} else {
+			clientSecret = clientSecret_secret.String()
+		}
+		defer clientSecret_secret.Destroy()
+	}
+
+	am.receiver, err = receiver.NewAzureMonitorMetricsReceiver(am.SubscriptionID, am.ClientID, clientSecret, am.TenantID, targets, am.azureClients)
 	return err
 }
 

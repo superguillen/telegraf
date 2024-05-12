@@ -959,14 +959,24 @@ func TestGather_Success(t *testing.T) {
 	}
 
 	var azureClients *receiver.AzureClients
-	azureClients, err = am.azureManager.createAzureClients(am.SubscriptionID, am.ClientID, am.ClientSecret, am.TenantID)
+
+	var clientSecret string
+	if !am.ClientSecret.Empty() {
+		clientSecret_secret, err := am.ClientSecret.Get()
+		if err == nil {
+			clientSecret = clientSecret_secret.String()
+		}
+		defer clientSecret_secret.Destroy()
+	}
+
+	azureClients, err = am.azureManager.createAzureClients(am.SubscriptionID, am.ClientID, clientSecret, am.TenantID)
 	require.NoError(t, err)
 	require.NotNil(t, azureClients)
 
 	am.receiver, err = receiver.NewAzureMonitorMetricsReceiver(
 		am.SubscriptionID,
 		am.ClientID,
-		am.ClientSecret,
+		clientSecret,
 		am.TenantID,
 		receiver.NewTargets(resourceTargets, []*receiver.ResourceGroupTarget{}, []*receiver.Resource{}),
 		azureClients,
