@@ -7,26 +7,28 @@ import (
 	"strconv"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	go_ora "github.com/sijms/go-ora/v2"
 )
 
 type OracleDB struct {
-	Server                                    string `toml:"server"`
-	User                                      string `toml:"user"`
-	Base64Password                            string `toml:"base64_password"`
-	GatherDatabaseInstanceDetails             bool   `toml:"gather_database_instance_details"`
-	GatherDatabaseInstanceSysmetric           bool   `toml:"gather_database_instance_sysmetric"`
-	GatherDatabaseInstanceWaitStats           bool   `toml:"gather_database_instance_wait_stats"`
-	GatherDatabaseInstanceWaitClassStats      bool   `toml:"gather_database_instance_wait_class_stats"`
-	GatherDatabaseInstanceUserSessions        bool   `toml:"gather_database_instance_user_sessions"`
-	GatherDatabaseInstanceUserSessionsDetails bool   `toml:"gather_database_instance_user_sessions_details"`
-	GatherDatabaseInstanceTablespaces         bool   `toml:"gather_database_instance_tablespaces"`
-	GatherDatabaseInstanceSGA                 bool   `toml:"gather_database_instance_sga"`
-	GatherDatabaseInstanceSQLStats            bool   `toml:"gather_database_instance_sqlstats"`
-	GatherDatabaseInstanceSysStat             bool   `toml:"gather_database_instance_sysstat"`
-	GatherDatabaseInstanceSystemEvent         bool   `toml:"gather_database_instance_system_event"`
-	GatherDatabaseInstanceSysTimeModel        bool   `toml:"gather_database_instance_sys_time_model"`
+	Server                                    string        `toml:"server"`
+	User                                      config.Secret `toml:"user"`
+	Password                                  config.Secret `toml:"password"`
+	Base64Password                            string        `toml:"base64_password"`
+	GatherDatabaseInstanceDetails             bool          `toml:"gather_database_instance_details"`
+	GatherDatabaseInstanceSysmetric           bool          `toml:"gather_database_instance_sysmetric"`
+	GatherDatabaseInstanceWaitStats           bool          `toml:"gather_database_instance_wait_stats"`
+	GatherDatabaseInstanceWaitClassStats      bool          `toml:"gather_database_instance_wait_class_stats"`
+	GatherDatabaseInstanceUserSessions        bool          `toml:"gather_database_instance_user_sessions"`
+	GatherDatabaseInstanceUserSessionsDetails bool          `toml:"gather_database_instance_user_sessions_details"`
+	GatherDatabaseInstanceTablespaces         bool          `toml:"gather_database_instance_tablespaces"`
+	GatherDatabaseInstanceSGA                 bool          `toml:"gather_database_instance_sga"`
+	GatherDatabaseInstanceSQLStats            bool          `toml:"gather_database_instance_sqlstats"`
+	GatherDatabaseInstanceSysStat             bool          `toml:"gather_database_instance_sysstat"`
+	GatherDatabaseInstanceSystemEvent         bool          `toml:"gather_database_instance_system_event"`
+	GatherDatabaseInstanceSysTimeModel        bool          `toml:"gather_database_instance_sys_time_model"`
 
 	Log telegraf.Logger `toml:"-"`
 }
@@ -89,14 +91,37 @@ func (m *OracleDB) Description() string {
 }
 
 func (m *OracleDB) Gather(acc telegraf.Accumulator) error {
+	var password string
+	var username string
 
-	password, err := base64.StdEncoding.DecodeString(m.Base64Password)
-
-	if err != nil {
-		return err
+	if !m.User.Empty() {
+		username_secret, err := m.User.Get()
+		if err != nil {
+			return err
+		} else {
+			username = username_secret.String()
+		}
+		defer username_secret.Destroy()
 	}
 
-	userurl := url.UserPassword(m.User, string(password)).String()
+	if !m.Password.Empty() {
+		password_secret, err := m.Password.Get()
+		if err != nil {
+			return err
+		} else {
+			password = password_secret.String()
+		}
+		defer password_secret.Destroy()
+	} else {
+		password_b64, err := base64.StdEncoding.DecodeString(m.Base64Password)
+		if err != nil {
+			return err
+		} else {
+			password = string(password_b64)
+		}
+	}
+
+	userurl := url.UserPassword(username, password).String()
 
 	//m.Log.Infof("oracle://%s@%s", userurl, m.Server)
 

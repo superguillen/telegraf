@@ -1541,7 +1541,7 @@ func (m *HanaDB) gatherSchemaMemory(hi *HanaInstance, db *sql.DB, acc telegraf.A
 				}
 				if (!isInternalSchema) && m.InternalSchemaSuffix != nil {
 					for _, suffix := range m.InternalSchemaSuffix {
-						if len(schema_name) >= len(suffix) && schema_name[len(schema_name)-len(suffix):len(schema_name)] == suffix {
+						if len(schema_name) >= len(suffix) && schema_name[len(schema_name)-len(suffix):] == suffix {
 							isInternalSchema = true
 							internal_schemas_used_mb += memory
 							break
