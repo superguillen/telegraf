@@ -45,7 +45,10 @@ const sampleConfig = `
   ## If no servers are specified, then localhost is used as the host.
   # server = "localhost:1521/XCD"
   # user = "user"
+  #For password in base64 format 
   # base64_password = "password"
+  #For plaint text or telegraf SecretStore
+  # password = "password"
   # gather_database_instance_details = true
   # gather_database_instance_sysmetric = true
   # gather_database_instance_wait_stats = true
