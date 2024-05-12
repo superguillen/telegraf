@@ -11,39 +11,41 @@ import (
 
 	"github.com/SAP/go-hdb/driver"
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/plugins/inputs"
 )
 
 type HanaDB struct {
-	Server                                 string   `toml:"server"`
-	User                                   string   `toml:"user"`
-	Password                               string   `toml:"password"`
-	GatherTenanInstances                   bool     `toml:"gather_tenan_instances"`
-	GatherDatabaseDetails                  bool     `toml:"gather_database_details"`
-	GatherServiceMemory                    bool     `toml:"gather_service_memory"`
-	GatherServicePorts                     bool     `toml:"gather_service_ports"`
-	GatherConnectionStats                  bool     `toml:"gather_connection_stats"`
-	GatherSqlServiceStats                  bool     `toml:"gather_sql_service_stats"`
-	GatherSchemaMemory                     bool     `toml:"gather_schema_memory"`
-	CollectInternalSchemaMemory            bool     `toml:"collect_internal_schema_memory"`
-	InternalSchemaPrefix                   []string `toml:"internal_schema_prefix"`
-	InternalSchemaSuffix                   []string `toml:"internal_schema_suffix"`
-	GatherHostResourceUtilization          bool     `toml:"gather_host_resource_utilization"`
-	GatherHostDiskUsage                    bool     `toml:"gather_host_disk_usage"`
-	GatherServiceReplication               bool     `toml:"gather_service_replication"`
-	GatherCurrentAlerts                    bool     `toml:"gather_current_alerts"`
-	GatherHostAgentCPUMetrics              bool     `toml:"gather_host_agent_cpu_metrics"`
-	GatherHostAgentNetworkMetrics          bool     `toml:"gather_host_agent_network_metrics"`
-	GatherDiskDataFiles                    bool     `toml:"gather_disk_data_files"`
-	GatherDiskIO                           bool     `toml:"gather_disk_io"`
-	GatherInstanceWorkload                 bool     `toml:"gather_instance_workload"`
-	GatherSystemDBDatabases                bool     `toml:"gather_systemdb_databases"`
-	GatherTopHeapMemoryCategories          bool     `toml:"gather_top_heap_memory_categories"`
-	TopHeapMemoryCategories                int      `toml:"top_heap_memory_categories"`
-	GatherSDIRemoteSubscriptionsStadistics bool     `toml:"gather_sdi_remote_subscriptions_stadistics"`
-	GatherLicenseUsage                     bool     `toml:"gather_license_usage"`
-	GatherServiceBufferCacheStats          bool     `toml:"gather_service_buffer_cache_stats"`
-	GatherServiceThreads                   bool     `toml:"gather_service_threads"`
+	Server                                 string        `toml:"server"`
+	User                                   config.Secret `toml:"user"`
+	Password                               config.Secret `toml:"password"`
+	GatherTenanInstances                   bool          `toml:"gather_tenan_instances"`
+	GatherDatabaseDetails                  bool          `toml:"gather_database_details"`
+	GatherServiceMemory                    bool          `toml:"gather_service_memory"`
+	GatherServicePorts                     bool          `toml:"gather_service_ports"`
+	GatherConnectionStats                  bool          `toml:"gather_connection_stats"`
+	GatherSqlServiceStats                  bool          `toml:"gather_sql_service_stats"`
+	GatherSchemaMemory                     bool          `toml:"gather_schema_memory"`
+	CollectInternalSchemaMemory            bool          `toml:"collect_internal_schema_memory"`
+	InternalSchemaPrefix                   []string      `toml:"internal_schema_prefix"`
+	InternalSchemaSuffix                   []string      `toml:"internal_schema_suffix"`
+	GatherHostResourceUtilization          bool          `toml:"gather_host_resource_utilization"`
+	GatherHostDiskUsage                    bool          `toml:"gather_host_disk_usage"`
+	GatherServiceReplication               bool          `toml:"gather_service_replication"`
+	GatherCurrentAlerts                    bool          `toml:"gather_current_alerts"`
+	GatherHostAgentCPUMetrics              bool          `toml:"gather_host_agent_cpu_metrics"`
+	GatherHostAgentNetworkMetrics          bool          `toml:"gather_host_agent_network_metrics"`
+	GatherDiskDataFiles                    bool          `toml:"gather_disk_data_files"`
+	GatherDiskIO                           bool          `toml:"gather_disk_io"`
+	GatherInstanceWorkload                 bool          `toml:"gather_instance_workload"`
+	GatherSystemDBDatabases                bool          `toml:"gather_systemdb_databases"`
+	GatherTopHeapMemoryCategories          bool          `toml:"gather_top_heap_memory_categories"`
+	TopHeapMemoryCategories                int           `toml:"top_heap_memory_categories"`
+	GatherSDIRemoteSubscriptionsStadistics bool          `toml:"gather_sdi_remote_subscriptions_stadistics"`
+	GatherLicenseUsage                     bool          `toml:"gather_license_usage"`
+	GatherServiceBufferCacheStats          bool          `toml:"gather_service_buffer_cache_stats"`
+	GatherServiceThreads                   bool          `toml:"gather_service_threads"`
+	GatherSDIRemoteSourceStatistics        bool          `toml:"gather_sdi_remote_source_statistics"`
 
 	Log telegraf.Logger `toml:"-"`
 	//InstanceInfo           map[string]interface{}
@@ -70,6 +72,7 @@ const sampleConfig = `
   ## If no servers are specified, then localhost is used as the host.
   # server = "localhost:30013"
   # user = "user"
+  #For plaint text or telegraf SecretStore
   # password = "password"
   ## If database is SYSTEMDB and user/password are same for tenan enable gathering 
   ## Note: Asume network resolution to host:port of tenans
@@ -103,6 +106,7 @@ const sampleConfig = `
   # gather_license_usage = true
   # gather_service_buffer_cache_stats = true
   # gather_service_threads = true
+  # gather_sdi_remote_source_statistics = true
 `
 
 const (
@@ -131,6 +135,7 @@ const (
 	defaultGatherLicenseUsage                     = false
 	defaultGatherServiceBufferCacheStats          = false
 	defaultGatherServiceThreads                   = false
+	defaultGatherSDIRemoteSourceStatistics        = false
 )
 
 func (m *HanaDB) Init() error {
@@ -170,7 +175,30 @@ func (m *HanaDB) Gather(acc telegraf.Accumulator) error {
 	//servers = append(servers,m.Server)
 	var wg sync.WaitGroup
 
-	userurl := url.UserPassword(m.User, m.Password).String()
+	var password string
+	var username string
+
+	if !m.User.Empty() {
+		username_secret, err := m.User.Get()
+		if err != nil {
+			return err
+		} else {
+			username = username_secret.String()
+		}
+		defer username_secret.Destroy()
+	}
+
+	if !m.Password.Empty() {
+		password_secret, err := m.Password.Get()
+		if err != nil {
+			return err
+		} else {
+			password = password_secret.String()
+		}
+		defer password_secret.Destroy()
+	}
+
+	userurl := url.UserPassword(username, password).String()
 
 	hdbUrl := fmt.Sprintf("hdb://%s@%s", userurl, m.Server)
 
@@ -757,6 +785,144 @@ const (
         GROUP BY HOST,PORT,SERVICE_NAME,WORKLOAD_CLASS_NAME,THREAD_TYPE,THREAD_METHOD,THREAD_STATE,USER_NAME,APPLICATION_NAME,APPLICATION_USER_NAME,LOCK_WAIT_COMPONENT,LOCK_WAIT_NAME,IS_ACTIVE,CLIENT_IP
         ORDER BY COUNT;
 	`
+	sdiRemoteSourceStatisticsQuery = `
+	SELECT * FROM
+	(SELECT RS.REMOTE_SOURCE_NAME
+		   ,RS.SERVICE_NAME
+		   ,RS.COMPONENT
+		   ,RS.SUB_COMPONENT
+		   ,RS.SUBSCRIPTION_NAME
+		   ,RS.STATISTIC_NUMBER
+		   ,CASE
+			  WHEN RS.STATISTIC_NUMBER = '10016' THEN 'last_received_message_secs'
+			  WHEN RS.STATISTIC_NUMBER = '10017' THEN 'last_distributed_message_secs'
+			  WHEN RS.STATISTIC_NUMBER = '10018' THEN 'last_applied_message_secs'
+			  WHEN RS.STATISTIC_NUMBER = '10019' THEN 'last_applied_message_for_subscription_secs'
+			  -------------
+			  WHEN RS.STATISTIC_NUMBER = '10001' THEN 'receiver_avg_record_process_time_microsecs'
+			  WHEN RS.STATISTIC_NUMBER = '10002' THEN 'distributor_avg_record_process_time_microsecs'
+			  WHEN RS.STATISTIC_NUMBER = '10004' THEN 'applier_avg_record_process_time_microsecs'
+			  -------------
+			  WHEN RS.STATISTIC_NUMBER = '10006' THEN 'receiver_meta_and_data_records_processed_count'
+			  WHEN RS.STATISTIC_NUMBER = '10007' THEN 'distributor_meta_and_data_records_processed_count'
+			  WHEN RS.STATISTIC_NUMBER = '10008' THEN 'applier_meta_and_data_records_processed_count'
+			  WHEN RS.STATISTIC_NUMBER = '10009' THEN 'applier_meta_and_data_records_processed_for_subscription_count'
+			  -------------
+			  WHEN RS.STATISTIC_NUMBER = '10011' THEN 'receiver_data_records_processed_count'
+			  WHEN RS.STATISTIC_NUMBER = '10012' THEN 'distributor_data_records_processed_count'
+			  WHEN RS.STATISTIC_NUMBER = '10013' THEN 'applier_data_records_processed_count'
+			  WHEN RS.STATISTIC_NUMBER = '10014' THEN 'applier_data_records_processed_for_subscription_count'
+			  -------------
+			  WHEN RS.STATISTIC_NUMBER = '10021' THEN 'applier_dml_insert_records_processed_for_subscription_count'
+			  WHEN RS.STATISTIC_NUMBER = '10023' THEN 'applier_dml_update_records_processed_for_subscription_count'
+			  -------------
+			  WHEN RS.STATISTIC_NUMBER = '10027' THEN 'last_updated_secs'
+			  -------------
+			  WHEN RS.STATISTIC_NUMBER = '40112' THEN 'num_invalidly_collect_trig_queue'
+			  WHEN RS.STATISTIC_NUMBER = '40113' THEN 'avg_time_collect_trig_queue'
+			  WHEN RS.STATISTIC_NUMBER = '40114' THEN 'num_trigger_records'
+			  WHEN RS.STATISTIC_NUMBER = '40115' THEN 'num_record_batches'
+			  WHEN RS.STATISTIC_NUMBER = '40116' THEN 'avg_records_per_trig_queue_scan'
+			  WHEN RS.STATISTIC_NUMBER = '40117' THEN 'avg_records_per_batch'
+			  WHEN RS.STATISTIC_NUMBER = '40118' THEN 'avg_scan_time_per_record_ms'
+			  WHEN RS.STATISTIC_NUMBER = '40119' THEN 'num_trans'
+			  WHEN RS.STATISTIC_NUMBER = '40120' THEN 'num_unscanned_records_in_trig_queue'
+			  WHEN RS.STATISTIC_NUMBER = '40121' THEN 'lastest_scanned_trans_time_in_trig_queue_secs'
+			  WHEN RS.STATISTIC_NUMBER = '40122' THEN 'lastest_trans_time_in_trig_queue_secs'
+			  WHEN RS.STATISTIC_NUMBER = '40124' THEN 'num_retrieved_results'
+			  WHEN RS.STATISTIC_NUMBER = '40125' THEN 'avg_time_retrieve_results_ms'
+			  WHEN RS.STATISTIC_NUMBER = '40126' THEN 'num_sent_rowsets'
+			  WHEN RS.STATISTIC_NUMBER = '40127' THEN 'num_sent_rows'
+			  WHEN RS.STATISTIC_NUMBER = '40128' THEN 'avg_rows_per_rowset'
+			  WHEN RS.STATISTIC_NUMBER = '40129' THEN 'avg_time_to_send_rowsets_ms'
+			  WHEN RS.STATISTIC_NUMBER = '40130' THEN 'latest_sent_time_in_applier_secs'
+			  WHEN RS.STATISTIC_NUMBER = '40143' THEN 'num_collect_trig_queue'
+			  WHEN RS.STATISTIC_NUMBER = '40143' THEN 'num_collect_trig_queue'
+			  WHEN RS.STATISTIC_NUMBER = '40144' THEN 'max_scan_time_per_record_ms'
+			  WHEN RS.STATISTIC_NUMBER = '40146' THEN 'min_scan_time_per_record_ms'
+			  ELSE RS.STATISTIC_NAME
+			END STATISTIC_NAME
+		   ,CASE
+			  WHEN RS.STATISTIC_NUMBER IN ('10016','10017','10018','10019','10027','40130') THEN SECONDS_BETWEEN(TO_TIMESTAMP(STATISTIC_VALUE), COLLECT_TIME)
+			  --Temporal fix to bad time
+			  WHEN RS.STATISTIC_NUMBER IN ('40121','40122') THEN
+				CASE
+				  WHEN TO_TIMESTAMP(STATISTIC_VALUE) > ADD_SECONDS(COLLECT_TIME,3600) THEN
+					SECONDS_BETWEEN(UTCTOLOCAL(TO_TIMESTAMP(STATISTIC_VALUE)), COLLECT_TIME)
+				  ELSE
+					SECONDS_BETWEEN(TO_TIMESTAMP(STATISTIC_VALUE), COLLECT_TIME)
+				END
+			  WHEN RS.STATISTIC_NUMBER IN ('40116','40117','40118','40125','40129','40144','40146') THEN TO_INTEGER(TO_DECIMAL(RS.STATISTIC_VALUE)*1000)
+			  WHEN RS.STATISTIC_NUMBER IN ('40113','40116','40117','40128') THEN TO_INTEGER(TO_DECIMAL(RS.STATISTIC_VALUE))
+			ELSE TO_INTEGER(RS.STATISTIC_VALUE)
+		   END STATISTIC_VALUE
+	FROM
+		(SELECT  REMOTE_SOURCE_NAME
+		   ,SERVICE_NAME
+		   ,COLLECT_TIME
+		   ,COMPONENT
+		   ,MAP(SUB_COMPONENT,'','no_data',SUB_COMPONENT) SUB_COMPONENT
+		   ,MAP(SUBSCRIPTION_NAME,'','no_data',SUBSCRIPTION_NAME) SUBSCRIPTION_NAME
+		   ,SUBSTR_BEFORE(STATISTIC_NAME,';') STATISTIC_NUMBER
+		   ,SUBSTR_AFTER(STATISTIC_NAME,';') STATISTIC_NAME
+		   ,STATISTIC_VALUE
+		 FROM M_REMOTE_SOURCE_STATISTICS
+		 WHERE REMOTE_SOURCE_NAME!='' AND (STATISTIC_NAME LIKE '%10016%'
+			 or STATISTIC_NAME LIKE '%10017%'
+			 or STATISTIC_NAME LIKE '%10018%'
+			 or STATISTIC_NAME LIKE '%10019%'
+			 or STATISTIC_NAME LIKE '%10001%'
+			 or STATISTIC_NAME LIKE '%10002%'
+			 or STATISTIC_NAME LIKE '%10004%'
+			 or STATISTIC_NAME LIKE '%10006%'
+			 or STATISTIC_NAME LIKE '%10007%'
+			 or STATISTIC_NAME LIKE '%10008%'
+			 or STATISTIC_NAME LIKE '%10009%'
+			 or STATISTIC_NAME LIKE '%10011%'
+			 or STATISTIC_NAME LIKE '%10012%'
+			 or STATISTIC_NAME LIKE '%10013%'
+			 or STATISTIC_NAME LIKE '%10014%'
+			 or STATISTIC_NAME LIKE '%10021%'
+			 or STATISTIC_NAME LIKE '%10023%'
+			 or STATISTIC_NAME LIKE '%10027%'
+			 or STATISTIC_NAME LIKE '%40112%'
+			 or STATISTIC_NAME LIKE '%40113%'
+			 or STATISTIC_NAME LIKE '%40114%'
+			 or STATISTIC_NAME LIKE '%40115%'
+			 or STATISTIC_NAME LIKE '%40116%'
+			 or STATISTIC_NAME LIKE '%40117%'
+			 or STATISTIC_NAME LIKE '%40118%'
+			 or STATISTIC_NAME LIKE '%40119%'
+			 or STATISTIC_NAME LIKE '%40120%'
+			 or STATISTIC_NAME LIKE '%40121%'
+			 or STATISTIC_NAME LIKE '%40122%'
+			 or STATISTIC_NAME LIKE '%40124%'
+			 or STATISTIC_NAME LIKE '%40125%'
+			 or STATISTIC_NAME LIKE '%40126%'
+			 or STATISTIC_NAME LIKE '%40127%'
+			 or STATISTIC_NAME LIKE '%40128%'
+			 or STATISTIC_NAME LIKE '%40129%'
+			 or STATISTIC_NAME LIKE '%40130%'
+			 or STATISTIC_NAME LIKE '%40143%'
+			 or STATISTIC_NAME LIKE '%40144%'
+			 or STATISTIC_NAME LIKE '%40146%'
+			 )
+	   ) RS
+	ORDER BY RS.REMOTE_SOURCE_NAME,RS.SUBSCRIPTION_NAME,RS.STATISTIC_NUMBER
+	)
+	UNION ALL
+	(SELECT REMOTE_SOURCE_NAME
+		  ,'dpserver' AS SERVICE_NAME
+		  ,'data_container' AS COMPONENT
+		  ,REPLACE(CONTENT_TYPE,' ','_') AS SUB_COMPONENT
+		  ,'no_data' AS SUBSCRIPTION_NAME
+		  ,'no_data' AS STATISTIC_NUMBER
+		  ,'data_container_size_bytes' AS STATISTIC_NAME
+		  ,TO_INTEGER(SUM(SIZE)) STATISTIC_VALUE
+	FROM REMOTE_SUBSCRIPTION_DATA_CONTAINERS
+	GROUP BY REMOTE_SOURCE_NAME,SUBSCRIPTION_NAME,CONTENT_TYPE)
+	;
+	`
 )
 
 func (m *HanaDB) getConnection(serv string) (*sql.DB, error) {
@@ -921,6 +1087,14 @@ func (m *HanaDB) gatherServer(hi *HanaInstance, db *sql.DB, acc telegraf.Accumul
 			return err
 		}
 	}
+
+	if m.GatherSDIRemoteSourceStatistics {
+		err = m.gatherGatherSDIRemoteSourceStatistics(hi, db, acc)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -2310,7 +2484,7 @@ func (m *HanaDB) gatherTopHeapMemoryCategories(hi *HanaInstance, db *sql.DB, acc
 	return nil
 }
 
-// gatherDatabaseDetails can be used to collect database details
+// gatherSDIRemoteSubscriptionsStadistics collect SDi subcription stats
 func (m *HanaDB) gatherSDIRemoteSubscriptionsStadistics(hi *HanaInstance, db *sql.DB, acc telegraf.Accumulator) error {
 	// run query
 	rows, err := db.Query(sdiRemoteSubscriptionsStadisticsQuery)
@@ -2342,7 +2516,7 @@ func (m *HanaDB) gatherSDIRemoteSubscriptionsStadistics(hi *HanaInstance, db *sq
 		rejected_msg_count          int64
 		last_msg_received_secs      int64
 		last_msg_applied_secs       int64
-		last_msg_applied_delay_secs uint8
+		last_msg_applied_delay_secs int64
 		receiver_latency_ms         driver.Decimal
 		applier_latency_ms          driver.Decimal
 	)
@@ -2661,6 +2835,75 @@ func (m *HanaDB) gatherServiceThreads(hi *HanaInstance, db *sql.DB, acc telegraf
 	return nil
 }
 
+// gatherGatherSDIRemoteSourceStatistics collect SDi remote source stats
+func (m *HanaDB) gatherGatherSDIRemoteSourceStatistics(hi *HanaInstance, db *sql.DB, acc telegraf.Accumulator) error {
+	// run query
+	rows, err := db.Query(sdiRemoteSourceStatisticsQuery)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	tags := make(map[string]string)
+	fields := map[string]interface{}{
+		"statistic_value": 0,
+	}
+
+	var (
+		remote_source_name string
+		service_name       string
+		component          string
+		sub_component      string
+		subscription_name  string
+		statistic_number   string
+		statistic_name     string
+		statistic_value    int64
+	)
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return err
+	}
+	numColumns := len(columns)
+
+	tags["host"] = hi.host
+	tags["database_name"] = hi.database_name
+	tags["instance_id"] = hi.instance_id
+	tags["instance_number"] = hi.instance_number
+	// iterate over rows and count the size and count of files
+	for rows.Next() {
+		if numColumns == 8 {
+			if err := rows.Scan(&remote_source_name,
+				&service_name,
+				&component,
+				&sub_component,
+				&subscription_name,
+				&statistic_number,
+				&statistic_name,
+				&statistic_value); err == nil {
+				tags["remote_source_name"] = remote_source_name
+				tags["service_name"] = service_name
+				tags["component"] = component
+				tags["sub_component"] = sub_component
+				tags["subscription_name"] = subscription_name
+				tags["statistic_number"] = statistic_number
+				tags["statistic_name"] = statistic_name
+				fields["statistic_value"] = statistic_value
+
+				//Some stats calculate negative values (values relative to current timetamp, example: last_applied_message_for_subscription_secs)
+				if statistic_value < 0 {
+					fields["statistic_value"] = 0
+				}
+
+				acc.AddFields("hanadb_sdi_remote_source_stats", fields, tags)
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func init() {
 	inputs.Add("hanadb", func() telegraf.Input {
 		return &HanaDB{
@@ -2689,6 +2932,7 @@ func init() {
 			GatherLicenseUsage:                     defaultGatherLicenseUsage,
 			GatherServiceBufferCacheStats:          defaultGatherServiceBufferCacheStats,
 			GatherServiceThreads:                   defaultGatherServiceThreads,
+			GatherSDIRemoteSourceStatistics:        defaultGatherSDIRemoteSourceStatistics,
 		}
 	})
 }
