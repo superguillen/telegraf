@@ -5,7 +5,7 @@ go 1.22
 require (
 	cloud.google.com/go/bigquery v1.61.0
 	cloud.google.com/go/monitoring v1.18.1
-	cloud.google.com/go/pubsub v1.37.0
+	cloud.google.com/go/pubsub v1.38.0
 	cloud.google.com/go/storage v1.40.0
 	collectd.org v0.6.0
 	github.com/99designs/keyring v1.2.2
@@ -210,7 +210,7 @@ require (
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20211230205640-daad0b7ba671
 	gonum.org/v1/gonum v0.15.0
 	google.golang.org/api v0.177.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20240415180920-8c6c420018be
+	google.golang.org/genproto/googleapis/api v0.0.0-20240429193739-8cf5692501f6
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.34.0
 	gopkg.in/gorethink/gorethink.v3 v3.0.5
