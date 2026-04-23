@@ -190,6 +190,7 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/sensu/sensu-go/api/core/v2 v2.16.0
+	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/shirou/gopsutil/v4 v4.26.2
 	github.com/showwin/speedtest-go v1.7.10
 	github.com/signalfx/golib/v3 v3.3.54
@@ -200,6 +201,7 @@ require (
 	github.com/srebhan/cborquery v1.0.4
 	github.com/srebhan/protobufquery v1.0.4
 	github.com/stretchr/testify v1.11.1
+	github.com/superguillen/socket-collector v0.1.4-alpha
 	github.com/tbrandon/mbserver v0.0.0-20170611213546-993e1772cc62
 	github.com/tdrn-org/go-hue v0.3.0
 	github.com/tdrn-org/go-nsdp v0.5.0
