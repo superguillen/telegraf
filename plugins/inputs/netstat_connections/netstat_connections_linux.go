@@ -23,7 +23,7 @@ type NetStatsConnections struct {
 	RemoteConnectionsProcessDetail bool     `toml:"remote_connections_process_detail"`
 	SocketsStatsEnabled            bool     `toml:"sockets_stats_enabled"`
 	SocketsStatsGroupMetrics       string   `toml:"sockets_stats_group_metrics"`
-	SocketsStatsOperations         string   `toml:"sockets_stats_operatioms"`
+	SocketsStatsOperations         string   `toml:"sockets_stats_operations"`
 	SocketsStatsCustomMetrics      []string `toml:"sockets_stats_custom_metrics"`
 }
 
