@@ -17,10 +17,10 @@ type UrlSanitizer struct {
 }
 
 var sampleConfig = `
-  ## Field containing the URI to sanitize.
+  ## Tag containing the URI to sanitize.
   key = "URI"
   
-  ## Field to store the sanitized URI. If empty, it overwrites key.
+  ## Tag to store the sanitized URI. If empty, it overwrites key.
   # result_key = "URI_sanitized"
   
   ## Tag to store the URI classification type.
@@ -123,15 +123,13 @@ func (u *UrlSanitizer) Apply(in ...telegraf.Metric) []telegraf.Metric {
 	}
 
 	for _, metric := range in {
-		if rawURI, ok := metric.GetField(u.Key); ok {
-			if uriStr, ok := rawURI.(string); ok {
-				uriType := u.classify(uriStr)
-				isStatic := u.SanitizeStaticFiles && uriType == "static_asset"
-				sanitizedURI := sanitize(uriStr, isStatic)
+		if rawURI, ok := metric.GetTag(u.Key); ok {
+			uriType := u.classify(rawURI)
+			isStatic := u.SanitizeStaticFiles && uriType == "static_asset"
+			sanitizedURI := sanitize(rawURI, isStatic)
 
-				metric.AddField(u.ResultKey, sanitizedURI)
-				metric.AddTag(u.TagKey, uriType)
-			}
+			metric.AddTag(u.ResultKey, sanitizedURI)
+			metric.AddTag(u.TagKey, uriType)
 		}
 	}
 	return in
