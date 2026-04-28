@@ -103,6 +103,12 @@ func sanitize(uri string, isStatic bool) string {
 			continue
 		}
 
+		if isAlphaNumSuffixedID(part) {
+			parts[i] = "{id}"
+			modified = true
+			continue
+		}
+
 		if isPrefixedID(part) {
 			parts[i] = "{id}"
 			modified = true
@@ -243,6 +249,35 @@ func isULIDOrSimilar(s string) bool {
 		}
 	}
 	return hasDigit
+}
+
+// isAlphaNumSuffixedID detects segments of the form [letters][digits][optional-letters],
+// e.g. content38291047MOV or report20240101PDF.
+// Requires a contiguous digit run of at least 5 to avoid version strings like "v2" or "chapter3".
+func isAlphaNumSuffixedID(s string) bool {
+	l := len(s)
+	if l < 8 {
+		return false
+	}
+	for i := 0; i < l; i++ {
+		c := s[i]
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+			return false
+		}
+	}
+	maxRun := 0
+	run := 0
+	for i := 0; i < l; i++ {
+		if s[i] >= '0' && s[i] <= '9' {
+			run++
+			if run > maxRun {
+				maxRun = run
+			}
+		} else {
+			run = 0
+		}
+	}
+	return maxRun >= 5
 }
 
 // isPrefixedID checks for "Stripe-like" pattern: short_prefix_followedByHighEntropy
