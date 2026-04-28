@@ -1,6 +1,8 @@
 package url_sanitizer
 
 import (
+	"strings"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/processors"
 )
@@ -10,6 +12,8 @@ type UrlSanitizer struct {
 	ResultKey           string            `toml:"result_key"`
 	TagKey              string            `toml:"tag_key"`
 	SanitizeStaticFiles bool              `toml:"sanitize_static_files"`
+	KeepQueryParams     bool              `toml:"keep_query_params"`
+	SanitizeQueryParams bool              `toml:"sanitize_query_params"`
 	ExtClassify         map[string]string `toml:"extension_classify"`
 	PreRules            map[string]string `toml:"prefix_rules"`
 	ConRules            map[string]string `toml:"contains_rules"`
@@ -29,6 +33,14 @@ var sampleConfig = `
   ## Sanitize static file names by replacing them with category placeholders (e.g. caballo.jpg -> {image}.jpg).
   ## Only applies when classify() returns "static_asset" to protect API endpoints with ambiguous extensions (.json, .xml).
   sanitize_static_files = true
+
+  ## Keep query parameters attached to the sanitized URI (e.g. ?id=123&sort=asc).
+  ## If false, query parameters are discarded to maximize cardinality reduction.
+  # keep_query_params = false
+
+  ## If keep_query_params is true, sanitize the query string values to placeholders (e.g. ?id={val}&sort={val}).
+  ## Set to false to keep raw query values (not recommended for cardinality).
+  # sanitize_query_params = true
 
   ## Optional custom classification rules. These merge with or override default industry standards.
   # [processors.url_sanitizer.extension_classify]
@@ -121,12 +133,33 @@ func (u *UrlSanitizer) Apply(in ...telegraf.Metric) []telegraf.Metric {
 	if u.TagKey == "" {
 		u.TagKey = "uri_type"
 	}
+	// Sanitize query params should be enabled by default (when keeping them) to ensure maximum safety.
+	if !u.KeepQueryParams {
+		u.SanitizeQueryParams = true
+	}
 
 	for _, metric := range in {
 		if rawURI, ok := metric.GetTag(u.Key); ok {
-			uriType := u.classify(rawURI)
+			// Split path and query
+			path := rawURI
+			query := ""
+			if qIdx := strings.IndexByte(rawURI, '?'); qIdx != -1 {
+				path = rawURI[:qIdx]
+				query = rawURI[qIdx+1:]
+			}
+
+			uriType := u.classify(path)
 			isStatic := u.SanitizeStaticFiles && uriType == "static_asset"
-			sanitizedURI := sanitize(rawURI, isStatic)
+			sanitizedURI := sanitize(path, isStatic)
+
+			// Handle query parameters
+			if u.KeepQueryParams && query != "" {
+				if u.SanitizeQueryParams {
+					sanitizedURI += sanitizeQuery(query)
+				} else {
+					sanitizedURI += "?" + query
+				}
+			}
 
 			metric.AddTag(u.ResultKey, sanitizedURI)
 			metric.AddTag(u.TagKey, uriType)

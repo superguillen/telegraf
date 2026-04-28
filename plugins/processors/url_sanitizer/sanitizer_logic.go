@@ -135,6 +135,21 @@ func sanitize(uri string, isStatic bool) string {
 	return strings.Join(parts, "/")
 }
 
+// sanitizeQuery takes a query string (without the leading '?') and replaces all values with '{val}'.
+// Example: "id=123&sort=asc" -> "?id={val}&sort={val}"
+func sanitizeQuery(query string) string {
+	if query == "" {
+		return ""
+	}
+	parts := strings.Split(query, "&")
+	for i, p := range parts {
+		if eqIdx := strings.IndexByte(p, '='); eqIdx != -1 {
+			parts[i] = p[:eqIdx] + "={val}"
+		}
+	}
+	return "?" + strings.Join(parts, "&")
+}
+
 var staticExtCategories = map[string]string{
 	".jpg": "image", ".jpeg": "image", ".png": "image", ".gif": "image",
 	".webp": "image", ".svg": "image", ".ico": "image", ".bmp": "image",
