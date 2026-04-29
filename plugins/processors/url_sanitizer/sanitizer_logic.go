@@ -10,21 +10,33 @@ func (u *UrlSanitizer) classify(uri string) string {
 		return "unknown"
 	}
 
-	// 1. Prefix Rules (most specific — protects /api/ from being overridden by .json ext)
+	// 1. Fast-Path for Strict Static Assets (overrides API rules)
+	// This protects files like /v2/app.js from being classified as api_rest
+	if idx := strings.LastIndexByte(uri, '.'); idx != -1 {
+		ext := uri[idx:]
+		if cat, exists := staticExtCategories[ext]; exists {
+			// Do not fast-path ambiguous extensions like .json, .xml, .yaml
+			if cat != "data" {
+				return "static_asset"
+			}
+		}
+	}
+
+	// 2. Prefix Rules (most specific — protects /api/ from being overridden by .json ext)
 	for prefix, uriType := range u.PreRules {
 		if strings.HasPrefix(uri, prefix) {
 			return uriType
 		}
 	}
 
-	// 2. Contains Rules
+	// 3. Contains Rules
 	for contain, uriType := range u.ConRules {
 		if strings.Contains(uri, contain) {
 			return uriType
 		}
 	}
 
-	// 3. Extension classify (from ExtClassify — least specific, fallback for URIs without known prefixes)
+	// 4. Extension classify (from ExtClassify — least specific, fallback for URIs without known prefixes)
 	if idx := strings.LastIndexByte(uri, '.'); idx != -1 {
 		ext := uri[idx:]
 		if uriType, exists := u.ExtClassify[ext]; exists {
@@ -49,6 +61,12 @@ func sanitize(uri string, isStatic bool) string {
 			continue
 		}
 
+		if isTemplateVar(part) {
+			parts[i] = "{var}"
+			modified = true
+			continue
+		}
+
 		if isUUID(part) {
 			parts[i] = "{uuid}"
 			modified = true
@@ -63,6 +81,12 @@ func sanitize(uri string, isStatic bool) string {
 
 		if isNumeric(part) {
 			parts[i] = "{id}"
+			modified = true
+			continue
+		}
+
+		if isFloatOrCoord(part) {
+			parts[i] = "{coord}"
 			modified = true
 			continue
 		}
@@ -172,6 +196,44 @@ var staticExtCategories = map[string]string{
 	".map":         "sourcemap",
 	".webmanifest": "manifest", ".appcache": "manifest",
 	".wasm": "binary",
+}
+
+// isFloatOrCoord detects strings representing floating point numbers or coordinates.
+// E.g., 19.3064068 or -99.1873094
+func isFloatOrCoord(s string) bool {
+	if len(s) < 3 {
+		return false
+	}
+	hasDot := false
+	hasDigit := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if i == 0 && c == '-' {
+			continue
+		}
+		if c == '.' {
+			if hasDot {
+				return false // more than one dot
+			}
+			hasDot = true
+			continue
+		}
+		if c >= '0' && c <= '9' {
+			hasDigit = true
+			continue
+		}
+		return false
+	}
+	return hasDot && hasDigit
+}
+
+// isTemplateVar detects strings enclosed in `%`
+func isTemplateVar(s string) bool {
+	l := len(s)
+	if l > 2 && s[0] == '%' && s[l-1] == '%' {
+		return true
+	}
+	return false
 }
 
 // Helpers for zero-regex parsing
@@ -292,21 +354,33 @@ func isAlphaNumSuffixedID(s string) bool {
 			run = 0
 		}
 	}
-	return maxRun >= 5
+	return maxRun >= 4
 }
 
 // isPrefixedID checks for "Stripe-like" pattern: short_prefix_followedByHighEntropy
+// Also handles UUIDs with a prefix like rb_c2de862c-f709-4825-ab76-ee9db08f5ca3
 func isPrefixedID(s string) bool {
 	// Look for the first underscore
 	idx := strings.IndexByte(s, '_')
 	if idx >= 2 && idx <= 5 { // prefix is 2-5 chars
-		// Right part must be alphanumeric and high entropy (e.g. 10 to 32 chars)
+		// Right part must be alphanumeric and high entropy (e.g. 10 to 36 chars)
 		right := s[idx+1:]
-		if len(right) >= 10 && len(right) <= 32 {
-			return isAlphanumeric(right)
+		if len(right) >= 10 && len(right) <= 36 { // 36 to fit a UUID
+			return isAlphanumericOrHyphen(right)
 		}
 	}
 	return false
+}
+
+// isAlphanumericOrHyphen checks if all characters are letters, digits, or hyphens
+func isAlphanumericOrHyphen(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 // isEmail performs a fast zero-regex basic validation for email shapes
