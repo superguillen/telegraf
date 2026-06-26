@@ -581,7 +581,7 @@ func (m *OracleDB) gatherServer(oi *OracleInstance, db *go_ora.Connection, acc t
 	}
 
 	if m.GatherDatabaseInstanceASM {
-		err = m.GatherDatabaseInstanceASM(oi, db, acc)
+		err = m.gatherDatabaseInstanceASM(oi, db, acc)
 		if err != nil {
 			return err
 		}
@@ -1443,7 +1443,7 @@ func (m *OracleDB) gatherDatabaseInstanceSysTimeModel(oi *OracleInstance, db *go
 	return nil
 }
 
-func (m *OracleDB) GatherDatabaseInstanceASM(oi *OracleInstance, db *go_ora.Connection, acc telegraf.Accumulator) error {
+func (m *OracleDB) gatherDatabaseInstanceASM(oi *OracleInstance, db *go_ora.Connection, acc telegraf.Accumulator) error {
 
 	stmt := go_ora.NewStmt(databaseInstanceASMQuery, db)
 	defer stmt.Close()
