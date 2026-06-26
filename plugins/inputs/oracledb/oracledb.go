@@ -1285,7 +1285,7 @@ func (m *OracleDB) gatherDatabaseInstanceSQLStats(oi *OracleInstance, db *go_ora
 			fields["sorts"] = sorts
 			fields["sharable_mem_bytes"] = sharable_mem_bytes
 			fields["total_sharable_mem_bytes"] = total_sharable_mem_bytes
-			fields["physical_read_requests"] = physical_write_requests
+			fields["physical_read_requests"] = physical_read_requests
 			fields["physical_read_bytes"] = physical_read_bytes
 			fields["physical_write_requests"] = physical_write_requests
 			fields["physical_write_bytes"] = physical_write_bytes
