@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
@@ -31,6 +32,11 @@ type OracleDB struct {
 	GatherDatabaseInstanceSysTimeModel        bool          `toml:"gather_database_instance_sys_time_model"`
 
 	Log telegraf.Logger `toml:"-"`
+
+	// Connection pooling
+	db    *go_ora.Connection `toml:"-"`
+	dbUrl string             `toml:"-"`
+	mu    sync.Mutex         `toml:"-"`
 }
 
 type OracleInstance struct {
@@ -82,6 +88,19 @@ const (
 )
 
 func (m *OracleDB) Init() error {
+	// Connection pooling initialization will happen on first Gather()
+	// to ensure credentials are available and handle reconnects gracefully
+	return nil
+}
+
+func (m *OracleDB) Stop() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.db != nil {
+		m.db.Close()
+		m.db = nil
+	}
 	return nil
 }
 
@@ -130,15 +149,29 @@ func (m *OracleDB) Gather(acc telegraf.Accumulator) error {
 
 	dbUrl := fmt.Sprintf("oracle://%s@%s", userurl, m.Server)
 
-	db, err := m.getConnection(dbUrl)
-	if err != nil {
-		return err
-	}
+	// Acquire lock for connection pool access
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-	defer db.Close()
+	// Initialize connection on first use or if URL changed
+	if m.db == nil || m.dbUrl != dbUrl {
+		// Close existing connection if URL changed
+		if m.db != nil {
+			m.db.Close()
+		}
+
+		db, err := m.getConnection(dbUrl)
+		if err != nil {
+			return err
+		}
+
+		m.db = db
+		m.dbUrl = dbUrl
+	}
+	// Reuse existing connection for subsequent gathers
 
 	var instanceInfo OracleInstance
-	acc.AddError(m.gatherServer(&instanceInfo, db, acc))
+	acc.AddError(m.gatherServer(&instanceInfo, m.db, acc))
 
 	return nil
 }
@@ -856,7 +889,7 @@ func (m *OracleDB) gatherDatabaseInstanceUserSessionsDetails(oi *OracleInstance,
 	var (
 		username         string
 		status           string
-		terminal         string
+		machine          string
 		event            string
 		sql_id           string
 		lockwait         string
