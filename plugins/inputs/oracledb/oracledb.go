@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
@@ -29,8 +30,14 @@ type OracleDB struct {
 	GatherDatabaseInstanceSysStat             bool          `toml:"gather_database_instance_sysstat"`
 	GatherDatabaseInstanceSystemEvent         bool          `toml:"gather_database_instance_system_event"`
 	GatherDatabaseInstanceSysTimeModel        bool          `toml:"gather_database_instance_sys_time_model"`
+	GatherDatabaseInstanceASM                 bool          `toml:"gather_database_instance_asm"`
 
 	Log telegraf.Logger `toml:"-"`
+
+	// Connection pooling
+	db    *go_ora.Connection `toml:"-"`
+	dbUrl string             `toml:"-"`
+	mu    sync.Mutex         `toml:"-"`
 }
 
 type OracleInstance struct {
@@ -60,6 +67,7 @@ const sampleConfig = `
   # gather_database_instance_sysstat = true
   # gather_database_instance_system_event = true
   # gather_database_instance_sys_time_model = true
+  # gather_database_instance_asm = true
   ########################################
   # Note: gather_database_instance_sqlstats = true only for databases with cursor_sharing=force (higth cardinality whit other that force)
   # gather_database_instance_sqlstats = true
@@ -79,9 +87,23 @@ const (
 	defaultGatherDatabaseInstanceSysStat             = true
 	defaultGatherDatabaseInstanceSystemEvent         = true
 	defaultGatherDatabaseInstanceSysTimeModel        = true
+	defaultGatherDatabaseInstanceASM                 = true
 )
 
 func (m *OracleDB) Init() error {
+	// Connection pooling initialization will happen on first Gather()
+	// to ensure credentials are available and handle reconnects gracefully
+	return nil
+}
+
+func (m *OracleDB) Stop() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.db != nil {
+		m.db.Close()
+		m.db = nil
+	}
 	return nil
 }
 
@@ -130,15 +152,29 @@ func (m *OracleDB) Gather(acc telegraf.Accumulator) error {
 
 	dbUrl := fmt.Sprintf("oracle://%s@%s", userurl, m.Server)
 
-	db, err := m.getConnection(dbUrl)
-	if err != nil {
-		return err
-	}
+	// Acquire lock for connection pool access
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-	defer db.Close()
+	// Initialize connection on first use or if URL changed
+	if m.db == nil || m.dbUrl != dbUrl {
+		// Close existing connection if URL changed
+		if m.db != nil {
+			m.db.Close()
+		}
+
+		db, err := m.getConnection(dbUrl)
+		if err != nil {
+			return err
+		}
+
+		m.db = db
+		m.dbUrl = dbUrl
+	}
+	// Reuse existing connection for subsequent gathers
 
 	var instanceInfo OracleInstance
-	acc.AddError(m.gatherServer(&instanceInfo, db, acc))
+	acc.AddError(m.gatherServer(&instanceInfo, m.db, acc))
 
 	return nil
 }
@@ -247,7 +283,7 @@ const (
 		,COUNT(*) SESSION_COUNT
 	FROM V$SESSION
 	WHERE USERNAME IS  NOT NULL
-	GROUP BY USERNAME,STATUS,COMMAND
+	GROUP BY USERNAME,STATUS
 	`
 
 	databaseInstanceTablespacesQuery = `
@@ -454,11 +490,24 @@ const (
     FROM V$SYS_TIME_MODEL
     WHERE VALUE > 0 
 	`
+
+	databaseInstanceASMQuery = `
+SELECT
+    NAME DISKGROUP_NAME,
+    ROUND(TOTAL_MB) TOTAL_MB,
+    ROUND(FREE_MB) FREE_MB,
+    ROUND((TOTAL_MB - FREE_MB) / TOTAL_MB * 100, 1) PERCENT_USED,
+    ROUND(REQUIRED_MIRROR_FREE_MB) REQUIRED_MIRROR_FREE_MB,
+    ROUND(USABLE_FILE_MB) USABLE_FILE_MB,
+    STATE,
+    TYPE
+FROM V$ASM_DISKGROUP
+`
 )
 
 func (m *OracleDB) getConnection(serv string) (*go_ora.Connection, error) {
 
-	db, err := go_ora.NewConnection(serv,nil)
+	db, err := go_ora.NewConnection(serv, nil)
 
 	if err != nil {
 		return nil, err
@@ -559,6 +608,13 @@ func (m *OracleDB) gatherServer(oi *OracleInstance, db *go_ora.Connection, acc t
 
 	if m.GatherDatabaseInstanceSysTimeModel {
 		err = m.gatherDatabaseInstanceSysTimeModel(oi, db, acc)
+		if err != nil {
+			return err
+		}
+	}
+
+	if m.GatherDatabaseInstanceASM {
+		err = m.gatherDatabaseInstanceASM(oi, db, acc)
 		if err != nil {
 			return err
 		}
@@ -856,7 +912,7 @@ func (m *OracleDB) gatherDatabaseInstanceUserSessionsDetails(oi *OracleInstance,
 	var (
 		username         string
 		status           string
-		terminal         string
+		machine          string
 		event            string
 		sql_id           string
 		lockwait         string
@@ -874,7 +930,7 @@ func (m *OracleDB) gatherDatabaseInstanceUserSessionsDetails(oi *OracleInstance,
 	for rows.Next_() {
 		if err := rows.Scan(&username,
 			&status,
-			&terminal,
+			&machine,
 			&event,
 			&sql_id,
 			&lockwait,
@@ -895,7 +951,7 @@ func (m *OracleDB) gatherDatabaseInstanceUserSessionsDetails(oi *OracleInstance,
 			tags["host"] = oi.host
 			tags["username"] = username
 			tags["status"] = status
-			tags["terminal"] = terminal
+			tags["machine"] = machine
 			tags["event"] = event
 			tags["sql_id"] = sql_id
 			tags["lockwait"] = lockwait
@@ -1262,7 +1318,7 @@ func (m *OracleDB) gatherDatabaseInstanceSQLStats(oi *OracleInstance, db *go_ora
 			fields["sorts"] = sorts
 			fields["sharable_mem_bytes"] = sharable_mem_bytes
 			fields["total_sharable_mem_bytes"] = total_sharable_mem_bytes
-			fields["physical_read_requests"] = physical_write_requests
+			fields["physical_read_requests"] = physical_read_requests
 			fields["physical_read_bytes"] = physical_read_bytes
 			fields["physical_write_requests"] = physical_write_requests
 			fields["physical_write_bytes"] = physical_write_bytes
@@ -1420,6 +1476,69 @@ func (m *OracleDB) gatherDatabaseInstanceSysTimeModel(oi *OracleInstance, db *go
 	return nil
 }
 
+func (m *OracleDB) gatherDatabaseInstanceASM(oi *OracleInstance, db *go_ora.Connection, acc telegraf.Accumulator) error {
+
+	stmt := go_ora.NewStmt(databaseInstanceASMQuery, db)
+	defer stmt.Close()
+
+	rows, err := stmt.Query_(nil)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	tags := make(map[string]string)
+	fields := map[string]interface{}{
+		"total_mb":                0.0,
+		"free_mb":                 0.0,
+		"percent_used":            0.0,
+		"required_mirror_free_mb": 0.0,
+		"usable_file_mb":          0.0,
+	}
+
+	var (
+		diskgroup_name          string
+		total_mb                float64
+		free_mb                 float64
+		percent_used            float64
+		required_mirror_free_mb float64
+		usable_file_mb          float64
+		state                   string
+		disk_type               string
+	)
+
+	for rows.Next_() {
+		if err := rows.Scan(&diskgroup_name,
+			&total_mb,
+			&free_mb,
+			&percent_used,
+			&required_mirror_free_mb,
+			&usable_file_mb,
+			&state,
+			&disk_type); err == nil {
+
+			tags["db"] = oi.instance_name
+			tags["instance_name"] = oi.instance_name
+			tags["container_name"] = oi.container_name
+			tags["pluglable_database_name"] = oi.pluglable_database_name
+			tags["instance_number"] = strconv.Itoa(oi.instance_number)
+			tags["host"] = oi.host
+			tags["diskgroup_name"] = diskgroup_name
+			tags["state"] = state
+			tags["type"] = disk_type
+			fields["total_mb"] = total_mb
+			fields["free_mb"] = free_mb
+			fields["percent_used"] = percent_used
+			fields["required_mirror_free_mb"] = required_mirror_free_mb
+			fields["usable_file_mb"] = usable_file_mb
+
+			acc.AddFields("oracle_asm_diskgroup", fields, tags)
+		}
+	}
+
+	return nil
+}
+
 func init() {
 	inputs.Add("oracledb", func() telegraf.Input {
 		return &OracleDB{
@@ -1436,6 +1555,7 @@ func init() {
 			GatherDatabaseInstanceSysStat:             defaultGatherDatabaseInstanceSysStat,
 			GatherDatabaseInstanceSystemEvent:         defaultGatherDatabaseInstanceSystemEvent,
 			GatherDatabaseInstanceSysTimeModel:        defaultGatherDatabaseInstanceSysTimeModel,
+			GatherDatabaseInstanceASM:                 defaultGatherDatabaseInstanceASM,
 		}
 	})
 }
