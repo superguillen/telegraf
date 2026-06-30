@@ -874,7 +874,7 @@ func (m *OracleDB) gatherDatabaseInstanceUserSessionsDetails(oi *OracleInstance,
 	for rows.Next_() {
 		if err := rows.Scan(&username,
 			&status,
-			&terminal,
+			&machine,
 			&event,
 			&sql_id,
 			&lockwait,
@@ -895,7 +895,7 @@ func (m *OracleDB) gatherDatabaseInstanceUserSessionsDetails(oi *OracleInstance,
 			tags["host"] = oi.host
 			tags["username"] = username
 			tags["status"] = status
-			tags["terminal"] = terminal
+			tags["machine"] = machine
 			tags["event"] = event
 			tags["sql_id"] = sql_id
 			tags["lockwait"] = lockwait
