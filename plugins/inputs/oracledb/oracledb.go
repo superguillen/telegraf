@@ -458,7 +458,7 @@ const (
 
 func (m *OracleDB) getConnection(serv string) (*go_ora.Connection, error) {
 
-	db, err := go_ora.NewConnection(serv,nil)
+	db, err := go_ora.NewConnection(serv, nil)
 
 	if err != nil {
 		return nil, err
